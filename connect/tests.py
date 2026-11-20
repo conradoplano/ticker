@@ -225,6 +225,20 @@ class MCPTests(OAuthMixin, TestCase):
         briefing = self.call("get_briefing")
         self.assertEqual(briefing["items"][0]["title"], "ECB holds rates")
 
+    def test_get_feed_explains_empty_results(self):
+        self.assertEqual([i["title"] for i in self.call("get_feed", topic="markets")["items"]], ["ECB holds rates"])
+        nothing = self.call("get_feed", topic="Knitting")
+        self.assertEqual(nothing["items"], [])
+        self.assertIn("no topic like", nothing["note"])
+        for article in (self.a, self.b):
+            Rating.objects.create(user=self.user, article=article, value="read")
+        read = self.call("get_feed")
+        self.assertEqual(len(read["items"]), 2)
+        self.assertTrue(read["items"][0]["read"])
+        self.assertIn("read all of these", read["note"])
+        ArticleScore.objects.all().delete()
+        self.assertIn("Nothing was ranked", self.call("get_feed")["note"])
+
     def test_add_topic_unmutes(self):
         Mute.objects.create(user=self.user, subject="chess")
         self.assertEqual(self.call("add_topic", name="Chess"), {"topic": "Chess", "added": True})

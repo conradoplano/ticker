@@ -7,7 +7,7 @@ from dataclasses import dataclass
 
 from django.urls import reverse
 
-from feed import build, learning
+from feed import build, learning, refresh
 from feed.models import ArticleScore, Rating
 from feed.scoring import hide_subject
 from sources.discover import discover
@@ -77,8 +77,7 @@ def item_info(context, score):
         "source": article.source_name,
         "published": article.published_at.isoformat(),
         "link": article.link,
-        "summary": article.summary or None,
-        "snippet": article.snippet,
+        "summary": article.one_line or None,
         "score": score.score,
         "topic": score.topic or None,
         "new_topic": score.new_topic or None,
@@ -94,24 +93,68 @@ def item_info(context, score):
     return info
 
 
+def match_topic(user, wanted):
+    """The person's topic meant by `wanted`: exact, else one containing it or contained in it ("FIFA" ->
+    "FIFA and football business"). Topics only seen as suggestions count too. "" if nothing fits."""
+    if not wanted:
+        return ""
+    names = list(user.topics.values_list("name", flat=True))
+    names += list(ArticleScore.objects.filter(user=user).exclude(new_topic="").values_list("new_topic", flat=True)
+                  .distinct()[:200])
+    low = wanted.lower()
+    for name in names:
+        if name.lower() == low:
+            return name
+    close = [n for n in names if low in n.lower() or n.lower() in low]
+    return min(close, key=len) if close else ""
+
+
 @tool("get_feed", "Get their news feed",
-      "Their ranked feed of the last three days: best for them first (or latest first), with each item's "
-      "article_id, score (0-100), topic and why it was picked. Optionally only one topic or a search.",
+      "Their ranked feed of the last three days, one item per story: best for them first (or latest first), with "
+      "each item's article_id, score (0-100), topic, story and a one-line summary. Stories they already read are "
+      "left out unless include_read is true. Optionally one topic (their topic names, see the result's topics; "
+      "close names work) or a search in titles and snippets.",
       {"order": {"type": "string", "enum": ["best", "latest"], "description": "best (default) or latest."},
        "topic": {"type": "string", "maxLength": 80, "description": "Only items about this topic."},
        "search": {"type": "string", "maxLength": 100, "description": "Only items whose title or snippet has this."},
+       "include_read": {"type": "boolean", "description": "Also stories they already read (marked read: true)."},
        "limit": {"type": "integer", "minimum": 1, "maximum": 100, "description": "How many (default 25)."}},
       read_only=True, idempotent=True)
 def get_feed(context, args):
+    user = context.user
     order = args.get("order") or "best"
     if order not in ("best", "latest"):
         raise ToolError("order must be best or latest.")
     limit = number(args, "limit", 1, 100) or 25
-    rows = build.items(context.user, mode=order, topic=text(args, "topic", 80), q=text(args, "search", 100))[:limit]
-    rows = build.decorate(context.user, rows)
-    return {"items": [item_info(context, s) for s in rows],
-            "topics": list(context.user.topics.filter(active=True).values_list("name", flat=True)),
-            "feed_url": context.base_url + reverse("feed:home")}
+    wanted, search = text(args, "topic", 80), text(args, "search", 100)
+    topic = match_topic(user, wanted)
+    topics = list(user.topics.filter(active=True).values_list("name", flat=True))
+    result = {"topics": topics, "feed_url": context.base_url + reverse("feed:home")}
+    if wanted and not topic:
+        result.update(items=[], note=f"They have no topic like \"{wanted}\". Their topics are listed in topics; "
+                                     f"or use search to look for a word in titles.")
+        return result
+    read = bool(args.get("include_read"))
+    rows = build.items(user, mode=order, topic=topic, q=search, read=read)
+    notes = []
+    if topic and topic.lower() != wanted.lower():
+        notes.append(f"Showing their topic \"{topic}\".")
+    if not rows and not read:
+        rows = build.items(user, mode=order, topic=topic, q=search, read=True)
+        if rows:
+            notes.append("They have read all of these already; shown anyway, marked read: true.")
+    if not rows:
+        if search or topic:
+            notes.append("Nothing in the last three days matches this.")
+        elif refresh.running(user):
+            notes.append("Their feed is being updated right now; try again in a minute.")
+        else:
+            notes.append("Nothing was ranked for them in the last three days. Check their sources with get_settings.")
+    rows = build.decorate(user, rows[:limit])
+    result["items"] = [item_info(context, s) for s in rows]
+    if notes:
+        result["note"] = " ".join(notes)
+    return result
 
 
 @tool("get_briefing", "Get today's briefing",
@@ -119,8 +162,7 @@ def get_feed(context, args):
       read_only=True, idempotent=True)
 def get_briefing(context, args):
     user = context.user
-    if user.briefing_date != user.local_now().date():
-        learning.build_briefing(user)
+    learning.ensure_briefing(user)
     return {"date": str(user.briefing_date), "items": [
         {"article_id": b["id"], "title": b["title"], "source": b["source"], "summary": b["sentence"]}
         for b in user.briefing]}

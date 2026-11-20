@@ -126,6 +126,16 @@ class AIScoringTests(Base):
         self.assertEqual(self.user.learned_profile, "You like monetary policy.")
         self.assertFalse(learning.learning_due(self.user))
 
+    def test_empty_briefing_is_not_kept(self):
+        learning.ensure_briefing(self.user)  # nothing ranked yet, e.g. right after a reset
+        self.assertEqual(self.user.briefing, [])
+        a = self.article("ECB holds rates")
+        ArticleScore.objects.create(user=self.user, article=a, score=90)
+        self.use_ai(ai_response("save_briefing", {"items": [{"number": 1, "sentence": "The ECB paused."}]}))
+        self.assertTrue(learning.briefing_due(self.user))
+        self.assertEqual(learning.ensure_briefing(self.user)[0]["sentence"], "The ECB paused.")
+        self.assertFalse(learning.briefing_due(self.user))  # no new stories: kept
+
     def test_briefing(self):
         a = self.article("ECB holds rates")
         ArticleScore.objects.create(user=self.user, article=a, score=90)

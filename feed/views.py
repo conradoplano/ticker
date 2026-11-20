@@ -113,7 +113,7 @@ def home(request):
         "topics": user.topics.filter(active=True),
         "follows": UserSource.objects.filter(user=user, active=True).select_related("source"),
         "show_briefing": not any(chosen[k] for k in ("topic", "source", "q", "story")) and chosen["mode"] == "best",
-        "briefing_ready": user.briefing_date == today,
+        "briefing_ready": user.briefing_date == today and len(user.briefing or []) >= learning.BRIEFING_SIZE,
         "has_sources": UserSource.objects.filter(user=user, active=True).exists(),
         "read_hidden": 0 if chosen["read"] else build.read_count(user, asof=asof, **chosen),
         "job": refresh.running(user),
@@ -133,8 +133,7 @@ def briefing(request):
     """The morning briefing block, loaded after the page so the feed never waits for it."""
     user = request.user
     today = user.local_now().date()
-    if user.briefing_date != today:
-        learning.build_briefing(user)
+    learning.ensure_briefing(user)
     first_today = request.session.get("briefing_seen") != str(today)
     request.session["briefing_seen"] = str(today)
     return render(request, "feed/_briefing.html", {"items": user.briefing, "open": first_today,

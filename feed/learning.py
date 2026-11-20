@@ -77,6 +77,25 @@ def briefing_items(user, count=15):
                 .select_related("article__source").order_by("-score", "-article__published_at")[:count])
 
 
+BRIEFING_SIZE = 5
+
+
+def briefing_due(user):
+    """True if today's briefing should be (re)built: there is none for today yet, or it was built when the
+    feed had fewer stories (e.g. empty right after a reset) and now there are more."""
+    if user.briefing_date != user.local_now().date():
+        return True
+    have = len(user.briefing or [])
+    return have < BRIEFING_SIZE and len(briefing_items(user, BRIEFING_SIZE)) > have
+
+
+def ensure_briefing(user):
+    """Today's briefing, built or completed when needed."""
+    if briefing_due(user):
+        build_briefing(user)
+    return user.briefing
+
+
 def build_briefing(user):
     """The day's five most important items with one sentence each, stored on the user."""
     scores = briefing_items(user)
