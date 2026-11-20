@@ -167,10 +167,15 @@ def rate(request, pk):
         return HttpResponse("Unknown rating", status=400)
     if value == "read":
         # Read or not, for the whole story: opening it from any source counts.
+        # Read or not, for the whole story: the same article from other sources, and every article with the
+        # card's story label.
         lead = article.story_id or article.id
-        story = Rating.objects.filter(user=user, value__in=Rating.READ_VALUES).filter(
-            Q(article_id=lead) | Q(article__story_id=lead))
-        existing = story if story.exists() else Rating.objects.none()
+        same = Q(article_id=lead) | Q(article__story_id=lead)
+        label = ArticleScore.objects.filter(user=user, article=article).values_list("story_key", flat=True).first()
+        if label:
+            same |= Q(article__scores__user=user, article__scores__story_key__iexact=label)
+        existing = Rating.objects.filter(user=user, value__in=Rating.READ_VALUES).filter(same).distinct()
+        existing = Rating.objects.filter(pk__in=list(existing.values_list("pk", flat=True)))
     else:
         existing = Rating.objects.filter(user=user, article=article, value=value)
     if existing.exists():

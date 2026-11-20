@@ -205,6 +205,17 @@ class StoryFeedTests(Base):
                                 HTTP_HX_REQUEST="true", HTTP_HX_CURRENT_URL="http://testserver/?topic=FIFA")
         self.assertContains(card, 'href="/?topic=FIFA&amp;story=FIFA+presidential+race"')
 
+    def test_mark_story_unread_from_any_of_its_cards(self):
+        url = reverse("feed:rate", args=[self.fifa[0].article_id])
+        self.client.get(reverse("feed:open", args=[self.fifa[3].article_id]))  # read through another article
+        card = self.client.post(url, {"value": "read"}, HTTP_HX_REQUEST="true")
+        self.assertNotContains(card, "item read")
+        self.assertFalse(Rating.objects.filter(user=self.user, value__in=Rating.READ_VALUES).exists())
+        self.assertEqual(len(build.items(self.user)), 2)  # the story is back
+        card = self.client.post(url, {"value": "read"}, HTTP_HX_REQUEST="true")
+        self.assertContains(card, "item read")
+        self.assertEqual([s.article.title for s in build.items(self.user)], ["ECB holds rates"])
+
     def test_story_view(self):
         page = self.client.get(reverse("feed:home") + "?story=FIFA%20presidential%20race")
         self.assertEqual(len(page.context["scores"]), 6)
