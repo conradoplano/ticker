@@ -198,6 +198,13 @@ class StoryTests(Base):
         self.assertEqual(sorted(set(ArticleScore.objects.values_list("story_key", flat=True))),
                          ["Russian missile in Poland", "Russian objects crash in Poland"])
 
+    @override_settings(OPENAI_API_KEY="")
+    def test_refresh_without_new_articles_still_joins_labels(self):
+        for title, label in [("a", "Russian missile in Poland"), ("b", "Russia missiles into Poland")]:
+            ArticleScore.objects.create(user=self.user, article=self.article(title), score=70, story_key=label)
+        self.assertEqual(scoring.score_new(self.user), (0, None))
+        self.assertEqual(set(ArticleScore.objects.values_list("story_key", flat=True)), {"Russian missile in Poland"})
+
     def test_loose_topic_stays_without_a_better_one(self):
         merz = self.article("Merz urges firms to invest in Ukraine")
         self.use_ai(ai_response("save_scores", {"items": [

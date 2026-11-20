@@ -300,6 +300,8 @@ def score_new(user, since=None):
     if not articles:
         if label_stories(user):
             merge_stories(user)
+        else:
+            merge_similar_labels(user)  # free: same-word labels are joined on every refresh
         return 0, None
     mutes = list(user.mutes.values_list("subject", flat=True))
     rows, rest = [], []
