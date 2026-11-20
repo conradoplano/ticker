@@ -186,7 +186,9 @@ class StoryFeedTests(Base):
         self.assertContains(page, "Also in: ")
         self.assertContains(page, "France 24")
         self.assertContains(page, "and 1 more")
-        self.assertContains(page, "All 6 on this story")
+        self.assertContains(page, '<span class="story-name">FIFA presidential race</span>')
+        self.assertContains(page, "6 articles ›")
+        self.assertNotContains(page, '<span class="story-name">ECB rate decision</span>')  # one article: no link
         self.assertEqual(len(build.items(self.user, mode="latest")), 2)
 
     def test_story_view(self):

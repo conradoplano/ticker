@@ -116,6 +116,18 @@ form.inline { display: inline; }
 .item .why { font-size: .85rem; color: var(--muted); margin: .25rem 0 0; grid-column: 1 / -1; }
 .item .also { font-size: .8rem; color: var(--muted); grid-column: 1 / -1; margin: 0; }
 .item .also a { color: var(--muted); }
+/* The story an article belongs to, when there are several articles on it. */
+.story-link {
+  grid-column: 1 / -1; justify-self: start; display: inline-flex; align-items: center; gap: .4rem; max-width: 100%;
+  margin-top: .3rem; padding: .2rem .65rem .2rem .5rem; border-radius: 999px; border: 1px solid var(--border);
+  background: var(--bg); color: var(--fg); font-size: .82rem; text-decoration: none;
+}
+.story-link:hover { border-color: var(--accent); color: var(--accent); }
+.story-link .icon { width: 15px; height: 15px; color: var(--accent); }
+.story-name { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.story-count { color: var(--muted); white-space: nowrap; }
+.item.read .story-link { opacity: .7; }
+
 /* Card actions: quiet line icons, right-aligned; they show their colour on hover or when active. */
 .item .actions { grid-column: 1 / -1; display: flex; justify-content: flex-end; align-items: center; gap: .25rem; margin-top: .15rem; }
 .icon-row { display: flex; gap: .1rem; }
