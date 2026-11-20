@@ -1,0 +1,25 @@
+{# The progress of a feed refresh. While it runs it asks for itself again every two seconds. #}
+{% load feed_tags %}
+<div id="refresh-banner" class="refresh-banner {{ job.status }}"{% if not job.finished %} hx-get="{% url 'feed:refresh_status' job.pk %}" hx-trigger="every 2s" hx-swap="outerHTML"{% endif %} role="status" aria-live="polite">
+  {% if job.status == "fetching" %}
+    <span class="mini-spinner" aria-hidden="true"></span>
+    <span>Checking your sources{% if job.sources_total %} · {{ job.sources_checked }} of {{ job.sources_total }}{% endif %}{% if job.articles_fetched %} · {{ job.articles_fetched }} new article{{ job.articles_fetched|pluralize }}{% endif %}…</span>
+  {% elif job.status == "ranking" %}
+    <span class="mini-spinner" aria-hidden="true"></span>
+    <span>Ranking new articles for you…</span>
+  {% elif job.status == "done" %}
+    {% if job.new_stories %}
+      <span class="done-mark" aria-hidden="true">✓</span>
+      <span>{{ job.new_stories }} new stor{{ job.new_stories|pluralize:"y,ies" }}{% if job.new_items != job.new_stories %} ({{ job.new_items }} articles){% endif %}</span>
+      <a class="btn small" href="{% url 'feed:home' %}">Show</a>
+    {% else %}
+      <span class="done-mark" aria-hidden="true">✓</span>
+      <span>You're up to date. Nothing new{% if job.articles_fetched or job.ranked %} for you{% endif %} right now.</span>
+      <button type="button" class="link small dismiss" onclick="this.closest('.refresh-banner').remove()" aria-label="Close">✕</button>
+    {% endif %}
+  {% else %}
+    <span class="warn-mark" aria-hidden="true">!</span>
+    <span>The update didn't work.</span>
+    <form method="post" action="{% url 'feed:refresh' %}" hx-post="{% url 'feed:refresh' %}" hx-target="#refresh-banner" hx-swap="outerHTML" class="inline">{% csrf_token %}<button class="link small">Try again</button></form>
+  {% endif %}
+</div>

@@ -6,11 +6,15 @@
       <a href="{% url 'feed:home' %}{% query mode='' page='' %}" class="{% if f.mode == 'best' %}on{% endif %}">Best for me</a>
       <a href="{% url 'feed:home' %}{% query mode='latest' page='' %}" class="{% if f.mode == 'latest' %}on{% endif %}">Latest</a>
     </div>
-    <form method="post" action="{% url 'feed:refresh' %}" hx-post="{% url 'feed:refresh' %}" hx-indicator="this" hx-disabled-elt="find button">
+    <form method="post" action="{% url 'feed:refresh' %}" hx-post="{% url 'feed:refresh' %}" hx-target="#refresh-slot" hx-swap="innerHTML">
       {% csrf_token %}
-      <button type="submit" class="ghost small">↻ Refresh now<span class="htmx-indicator"> …</span></button>
+      <button type="submit" class="ghost small" title="Check your sources and add new articles now">↻ Refresh now</button>
     </form>
   </div>
+  <p class="update-line small muted">
+    {% if last_update %}Updated {{ last_update|update_time }}{% else %}Not updated yet{% endif %}{% if next_update %} · next update {{ next_update|update_time }}{% endif %}
+  </p>
+  <div id="refresh-slot">{% if job %}{% include "feed/_refresh.html" %}{% endif %}</div>
 
   <form method="get" class="filters" action="{% url 'feed:home' %}">
     {% if f.mode == 'latest' %}<input type="hidden" name="mode" value="latest">{% endif %}

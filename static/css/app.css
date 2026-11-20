@@ -98,6 +98,22 @@ form.inline { display: inline; }
 .htmx-indicator { display: none; }
 .htmx-request .htmx-indicator, .htmx-request.htmx-indicator { display: inline; }
 
+/* Feed updates: when it last updated, and the progress of a refresh. */
+.update-line { margin: -.35rem 0 .6rem; }
+.refresh-banner {
+  display: flex; align-items: center; gap: .6rem; margin-bottom: .75rem; padding: .6rem .85rem;
+  border-radius: 10px; background: var(--accent-soft); color: var(--fg); font-size: .9rem;
+}
+.refresh-banner.done { background: var(--good-soft); }
+.refresh-banner.failed { background: var(--neg-soft); }
+.refresh-banner > span:not(.mini-spinner):not(.done-mark):not(.warn-mark) { flex: 1; }
+.refresh-banner .btn.small { padding: .25rem .75rem; }
+.refresh-banner .dismiss { color: var(--muted); text-decoration: none; }
+.done-mark { color: var(--good); font-weight: 700; }
+.warn-mark { color: var(--neg); font-weight: 700; }
+.mini-spinner { flex: none; width: 1rem; height: 1rem; border: 2px solid var(--border); border-top-color: var(--accent);
+  border-radius: 50%; animation: spin 1s linear infinite; }
+
 /* Briefing */
 .briefing { border-left: 4px solid var(--amber); }
 .briefing summary { cursor: pointer; font-weight: 700; }

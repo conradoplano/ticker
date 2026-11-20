@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from .models import ArticleScore, Rating
+from .models import ArticleScore, Rating, Refresh
 
 
 @admin.register(ArticleScore)
@@ -17,3 +17,12 @@ class RatingAdmin(admin.ModelAdmin):
     list_filter = ("value",)
     search_fields = ("article__title", "user__email")
     raw_id_fields = ("article",)
+
+
+@admin.register(Refresh)
+class RefreshAdmin(admin.ModelAdmin):
+    list_display = ("started_at", "user", "trigger", "status", "sources_checked", "articles_fetched", "ranked",
+                    "new_stories", "finished_at")
+    list_filter = ("trigger", "status")
+    search_fields = ("user__email",)
+    readonly_fields = [f.name for f in Refresh._meta.fields]

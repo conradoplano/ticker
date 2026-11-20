@@ -18,7 +18,7 @@ from sources.models import Article, UserSource
 from topics.models import Mute, Topic
 
 from . import build, learning, refresh, scoring
-from .models import ArticleScore, Rating
+from .models import ArticleScore, Rating, Refresh
 
 # Opening the app after this long away is a new visit; new items are marked from the visit before.
 VISIT_GAP = timedelta(hours=1)
@@ -76,7 +76,7 @@ def page_time(request):
 def home(request):
     user = request.user
     if note_visit(request) and refresh.waiting(user):
-        refresh.refresh_in_background(user)
+        refresh.refresh_in_background(user, Refresh.Trigger.VISIT)
     chosen = filters(request)
     try:
         number = max(1, int(request.GET.get("page", 1)))
@@ -101,6 +101,9 @@ def home(request):
         "briefing_ready": user.briefing_date == today,
         "has_sources": UserSource.objects.filter(user=user, active=True).exists(),
         "read_hidden": 0 if chosen["read"] else build.read_count(user, asof=asof, **chosen),
+        "job": refresh.running(user),
+        "next_update": refresh.next_update(user),
+        "last_update": user.last_refresh_at.astimezone(user.tz) if user.last_refresh_at else None,
         "topic_followed": bool(chosen["topic"]) and user.topics.filter(name__iexact=chosen["topic"], active=True).exists(),
     })
     if is_htmx(request):
@@ -220,13 +223,18 @@ def mute_topic(request, pk):
 @setup_required
 @require_POST
 def refresh_now(request):
-    count = refresh.refresh_user(request.user)
-    messages.success(request, f"{count} new item{'s' if count != 1 else ''}." if count else "Nothing new right now.")
+    """Starts a refresh in the background (as Chef runs its AI jobs); the page shows its progress."""
+    job = refresh.refresh_in_background(request.user, Refresh.Trigger.MANUAL)
     if is_htmx(request):
-        response = HttpResponse("")
-        response["HX-Redirect"] = reverse("feed:home")
-        return response
+        return render(request, "feed/_refresh.html", {"job": job})
     return redirect("feed:home")
+
+
+@setup_required
+def refresh_status(request, pk):
+    """The progress banner of a refresh; it asks again every two seconds until the refresh is finished."""
+    job = get_object_or_404(Refresh, pk=pk, user=request.user)
+    return render(request, "feed/_refresh.html", {"job": job})
 
 
 @setup_required

@@ -16,7 +16,7 @@ from sources.models import Article, Source, UserSource
 from topics.models import Mute, Topic
 
 from . import build, learning, refresh, scoring
-from .models import ArticleScore, Rating
+from .models import ArticleScore, Rating, Refresh
 
 
 def ai_response(name, data, tokens=(1000, 200)):
@@ -545,3 +545,76 @@ class AITrialTests(TestCase):
         self.assertContains(page, "AI trial")
         self.assertContains(page, "Free AI until")
         self.assertContains(page, "New accounts on trial, today")
+
+
+@override_settings(OPENAI_API_KEY="")
+class RefreshJobTests(Base):
+    def setUp(self):
+        super().setUp()
+        self.client.force_login(self.user)
+
+    def test_refresh_now_starts_a_job_and_shows_its_progress(self):
+        with mock.patch.object(refresh.threading, "Thread") as thread:
+            banner = self.client.post(reverse("feed:refresh"), HTTP_HX_REQUEST="true")
+            again = self.client.post(reverse("feed:refresh"), HTTP_HX_REQUEST="true")
+        thread.return_value.start.assert_called_once()  # one job at a time
+        job = Refresh.objects.get()
+        self.assertEqual(job.trigger, "manual")
+        self.assertContains(banner, "Checking your sources")
+        self.assertContains(banner, 'hx-trigger="every 2s"')
+        self.assertEqual(again.context["job"], job)
+        self.assertContains(self.client.get(reverse("feed:home")), "Checking your sources")  # also after a reload
+
+    def test_run_records_progress_and_what_it_added(self):
+        def fetched(source):
+            self.article("Central banks raise rates")
+            self.article("Cat rescued from tree", hours=2)
+            return 2
+        job = Refresh.objects.create(user=self.user)
+        with mock.patch("sources.fetch.fetch_source", side_effect=fetched):
+            refresh.run(job)
+        job.refresh_from_db()
+        self.assertEqual((job.status, job.sources_total, job.sources_checked, job.articles_fetched, job.ranked),
+                         ("done", 1, 1, 2, 2))
+        self.assertEqual((job.new_items, job.new_stories), (2, 2))
+        banner = self.client.get(reverse("feed:refresh_status", args=[job.pk]))
+        self.assertContains(banner, "2 new stories")
+        self.assertNotContains(banner, "hx-trigger")
+        self.user.refresh_from_db()
+        self.assertIsNotNone(self.user.last_refresh_at)
+
+    def test_nothing_new(self):
+        job = Refresh.objects.create(user=self.user)
+        with mock.patch("sources.fetch.fetch_source", return_value=0):
+            refresh.run(job)
+        self.assertContains(self.client.get(reverse("feed:refresh_status", args=[job.pk])), "You're up to date")
+
+    def test_failure_is_shown(self):
+        job = Refresh.objects.create(user=self.user)
+        with mock.patch("feed.scoring.score_new", side_effect=RuntimeError("boom")), \
+                mock.patch("sources.fetch.fetch_source", return_value=0):
+            refresh.run(job)
+        self.assertContains(self.client.get(reverse("feed:refresh_status", args=[job.pk])), "didn't work")
+
+    def test_manual_refresh_rechecks_sources_the_background_checked_recently(self):
+        self.source.last_fetched_at = timezone.now() - timedelta(minutes=5)
+        manual, scheduled = Refresh(trigger="manual"), Refresh(trigger="scheduled")
+        self.assertTrue(refresh.should_fetch(self.source, manual))
+        self.assertFalse(refresh.should_fetch(self.source, scheduled))
+        self.source.last_fetched_at = timezone.now() - timedelta(seconds=30)
+        self.assertFalse(refresh.should_fetch(self.source, manual))
+
+    def test_other_people_cannot_see_a_refresh(self):
+        job = Refresh.objects.create(user=self.user)
+        self.client.force_login(User.objects.create_user(email="sam@example.com", setup_completed=True))
+        self.assertEqual(self.client.get(reverse("feed:refresh_status", args=[job.pk])).status_code, 404)
+
+    def test_update_line(self):
+        self.user.time_zone = "Europe/Berlin"
+        self.user.refresh_times = ["07:00", "12:00"]
+        berlin = ZoneInfo("Europe/Berlin")
+        self.assertEqual(refresh.next_update(self.user, datetime(2026, 11, 20, 9, 0, tzinfo=berlin)),
+                         datetime(2026, 11, 20, 12, 0, tzinfo=berlin))
+        self.assertEqual(refresh.next_update(self.user, datetime(2026, 11, 20, 13, 0, tzinfo=berlin)),
+                         datetime(2026, 11, 21, 7, 0, tzinfo=berlin))
+        self.assertContains(self.client.get(reverse("feed:home")), "next update")

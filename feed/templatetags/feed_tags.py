@@ -15,6 +15,22 @@ def ago(moment):
     return f"{timesince(moment, depth=1)} ago"
 
 
+@register.filter
+def update_time(moment):
+    """"10:32", "yesterday 21:00" or "Mon 07:00", in the time zone the moment carries (the person's)."""
+    if not moment:
+        return ""
+    today = timezone.now().astimezone(moment.tzinfo).date() if timezone.is_aware(moment) else timezone.localdate()
+    day = moment.date()
+    if day == today:
+        return f"{moment:%H:%M}"
+    if day == today - timezone.timedelta(days=1):
+        return f"yesterday {moment:%H:%M}"
+    if day == today + timezone.timedelta(days=1):
+        return f"tomorrow {moment:%H:%M}"
+    return f"{moment:%a %H:%M}"
+
+
 @register.simple_tag(takes_context=True)
 def query(context, **changes):
     """The current feed filters with some changed, as a query string."""

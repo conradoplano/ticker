@@ -68,3 +68,43 @@ class Rating(models.Model):
 
     def __str__(self):
         return f"{self.user} {self.value} {self.article}"
+
+
+class Refresh(models.Model):
+    """One update of a person's feed, run in the background (as Chef runs its AI jobs): the page shows its
+    progress and what it added."""
+
+    class Trigger(models.TextChoices):
+        MANUAL = "manual", "Refresh now"
+        VISIT = "visit", "Opened the app"
+        SCHEDULED = "scheduled", "Refresh time"
+        SETUP = "setup", "Setup"
+
+    class Status(models.TextChoices):
+        FETCHING = "fetching", "Checking sources"
+        RANKING = "ranking", "Ranking new articles"
+        DONE = "done", "Done"
+        FAILED = "failed", "Failed"
+
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="refreshes")
+    trigger = models.CharField(max_length=10, choices=Trigger.choices, default=Trigger.MANUAL)
+    status = models.CharField(max_length=10, choices=Status.choices, default=Status.FETCHING)
+    sources_total = models.PositiveIntegerField(default=0)
+    sources_checked = models.PositiveIntegerField(default=0)
+    articles_fetched = models.PositiveIntegerField(default=0, help_text="New articles downloaded from their sources.")
+    ranked = models.PositiveIntegerField(default=0, help_text="Articles ranked for them.")
+    new_items = models.PositiveIntegerField(default=0, help_text="Of those, shown in the feed.")
+    new_stories = models.PositiveIntegerField(default=0, help_text="The stories those belong to.")
+    error = models.CharField(max_length=300, blank=True)
+    started_at = models.DateTimeField(default=timezone.now, db_index=True)
+    finished_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ["-started_at"]
+
+    def __str__(self):
+        return f"{self.get_trigger_display()} for {self.user} at {self.started_at:%Y-%m-%d %H:%M}: {self.status}"
+
+    @property
+    def finished(self):
+        return self.status in (self.Status.DONE, self.Status.FAILED)
