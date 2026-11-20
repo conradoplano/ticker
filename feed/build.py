@@ -67,12 +67,12 @@ def base(user, topic="", source="", q="", read=False, asof=None, story=""):
         scores = scores.filter(created_at__lte=asof)
     if not read:
         scores = scores.exclude(read_q(user, asof))
+    if story:  # a story shows all its articles, whatever topic or source you came from
+        return scores.filter(story_key__iexact=story)
     if topic:
         scores = scores.filter(Q(topic__iexact=topic) | Q(new_topic__iexact=topic))
     if source:
         scores = scores.filter(article__source_id=source)
-    if story:
-        scores = scores.filter(story_key__iexact=story)
     if q:
         scores = scores.filter(Q(article__title__icontains=q) | Q(article__snippet__icontains=q))
     return scores
@@ -173,7 +173,10 @@ def decorate(user, scores):
                 seen.add(article.source_name.lower())
                 s.also.append(article)
         s.also_shown, s.also_more = s.also[:ALSO_SHOWN], max(0, len(s.also) - ALSO_SHOWN)
-        s.story_size = 1 + len(getattr(s, "more", []))
+        if hasattr(s, "more"):
+            s.story_size = 1 + len(s.more)
+        else:  # a single card redrawn after a tap: count its story's articles
+            s.story_size = base(user, read=True, story=s.story_key).count() if s.story_key else 1
         s.ratings = ratings[s.article_id]
         read_at = labels_read.get(s.story_key.lower()) if s.story_key else None
         s.is_read = lead in opened_stories or bool(read_at and s.created_at <= read_at)

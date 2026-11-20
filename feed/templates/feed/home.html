@@ -35,7 +35,7 @@
     <div class="topic-head card">
       <div class="spread">
         <h2>{{ f.story }}</h2>
-        <a href="{% url 'feed:home' %}{% query story='' page='' %}" class="small">✕ Back to the feed</a>
+        <a href="{% url 'feed:home' %}{% query story='' page='' %}" class="small">‹ Back to {% if f.topic %}{{ f.topic }}{% elif f.q %}“{{ f.q }}”{% elif source_name %}{{ source_name }}{% else %}the feed{% endif %}</a>
       </div>
       <p class="muted small">Every article on this story, newest first.</p>
     </div>

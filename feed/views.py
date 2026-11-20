@@ -1,4 +1,5 @@
 import json
+from urllib.parse import urlsplit
 from datetime import datetime, timedelta
 from datetime import timezone as dt_timezone
 
@@ -6,7 +7,7 @@ from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth import logout
 from django.contrib.auth.decorators import login_required
-from django.http import HttpResponse, JsonResponse
+from django.http import HttpResponse, JsonResponse, QueryDict
 from django.db.models import Q
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
@@ -51,17 +52,33 @@ def note_visit(request):
     return new_visit
 
 
-def filters(request):
-    mode = request.GET.get("mode", "best")
-    source = request.GET.get("source", "")
+def filters(request, params=None):
+    params = request.GET if params is None else params
+    mode = params.get("mode", "best")
+    source = params.get("source", "")
     return {
         "mode": mode if mode in ("best", "latest") else "best",
-        "topic": request.GET.get("topic", "")[:80],
+        "topic": params.get("topic", "")[:80],
         "source": int(source) if source.isdigit() else "",
-        "q": request.GET.get("q", "").strip()[:100],
-        "read": request.GET.get("read") == "1",
-        "story": " ".join(request.GET.get("story", "").split())[:120],
+        "q": params.get("q", "").strip()[:100],
+        "read": params.get("read") == "1",
+        "story": " ".join(params.get("story", "").split())[:120],
     }
+
+
+def query_of(chosen):
+    """The filters as they go into links (so a story or the next page keeps where you came from)."""
+    query = {k: v for k, v in chosen.items() if v and not (k == "mode" and v == "best")}
+    if query.get("read"):
+        query["read"] = 1
+    return query
+
+
+def page_filters(request):
+    """The filters of the page a card was changed on (htmx sends its address), for the card's links."""
+    params = QueryDict(urlsplit(request.headers.get("HX-Current-URL", "")).query)
+    chosen = filters(request, params)
+    return {"f": chosen, "query": query_of(chosen)}
 
 
 def page_time(request):
@@ -84,9 +101,7 @@ def home(request):
         number = 1
     asof = page_time(request)
     scores, more = build.page(user, number, asof=asof, **chosen)
-    query = {k: v for k, v in chosen.items() if v and not (k == "mode" and v == "best")}
-    if query.get("read"):
-        query["read"] = 1
+    query = query_of(chosen)
     context = {
         "scores": scores, "more": more, "next_page": number + 1, "f": chosen, "query": query,
         "asof": f"{asof.timestamp():.3f}",
@@ -102,6 +117,8 @@ def home(request):
         "has_sources": UserSource.objects.filter(user=user, active=True).exists(),
         "read_hidden": 0 if chosen["read"] else build.read_count(user, asof=asof, **chosen),
         "job": refresh.running(user),
+        "source_name": next((us.display_name for us in UserSource.objects.filter(user=user, source_id=chosen["source"])
+                             .select_related("source")), "") if chosen["source"] else "",
         "next_update": refresh.next_update(user),
         "last_update": user.last_refresh_at.astimezone(user.tz) if user.last_refresh_at else None,
         "topic_followed": bool(chosen["topic"]) and user.topics.filter(name__iexact=chosen["topic"], active=True).exists(),
@@ -136,7 +153,7 @@ def card_response(request, score):
     if score is None or score.hidden:
         return HttpResponse("")
     build.decorate(request.user, [score])
-    return render(request, "feed/_item.html", {"s": score})
+    return render(request, "feed/_item.html", {"s": score, **page_filters(request)})
 
 
 @setup_required

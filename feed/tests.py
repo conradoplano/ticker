@@ -192,6 +192,19 @@ class StoryFeedTests(Base):
         self.assertNotContains(page, '<span class="story-name">ECB rate decision</span>')  # one article: no link
         self.assertEqual(len(build.items(self.user, mode="latest")), 2)
 
+    def test_story_keeps_the_topic_you_came_from(self):
+        Topic.objects.create(user=self.user, name="FIFA")
+        ArticleScore.objects.filter(story_key="FIFA presidential race").update(topic="FIFA")
+        ArticleScore.objects.filter(article__title="FIFA race heats up").update(topic="Football")  # another topic
+        page = self.client.get(reverse("feed:home") + "?topic=FIFA")
+        self.assertContains(page, 'href="/?topic=FIFA&amp;story=FIFA+presidential+race"')
+        story = self.client.get(reverse("feed:home") + "?topic=FIFA&story=FIFA+presidential+race")
+        self.assertEqual(len(story.context["scores"]), 6)  # the whole story, not only the topic's part
+        self.assertContains(story, '<a href="/?topic=FIFA" class="small">‹ Back to FIFA</a>')
+        card = self.client.post(reverse("feed:rate", args=[self.fifa[0].article_id]), {"value": "up"},
+                                HTTP_HX_REQUEST="true", HTTP_HX_CURRENT_URL="http://testserver/?topic=FIFA")
+        self.assertContains(card, 'href="/?topic=FIFA&amp;story=FIFA+presidential+race"')
+
     def test_story_view(self):
         page = self.client.get(reverse("feed:home") + "?story=FIFA%20presidential%20race")
         self.assertEqual(len(page.context["scores"]), 6)

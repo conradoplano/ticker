@@ -13,7 +13,7 @@
   {% if s.article.image_url %}<img class="thumb" src="{{ s.article.image_url }}" alt="" loading="lazy" referrerpolicy="no-referrer">{% endif %}
   <div class="foot">
     {% if s.story_key and s.story_size > 1 %}
-      <a class="story-link" href="{% url 'feed:home' %}?story={{ s.story_key|urlencode }}{% if f.read %}&amp;read=1{% endif %}" title="All articles on this story">{% include "feed/_icon.html" with name="story" %}<span class="story-name">{{ s.story_key }}</span><span class="story-count">{{ s.story_size }}</span></a>
+      <a class="story-link" href="{% url 'feed:home' %}{% query story=s.story_key page='' %}" title="All articles on this story">{% include "feed/_icon.html" with name="story" %}<span class="story-name">{{ s.story_key }}</span><span class="story-count">{{ s.story_size }}</span></a>
     {% endif %}
   <div class="actions">
     {% if s.is_discovery %}
