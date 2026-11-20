@@ -188,6 +188,24 @@ class StoryTests(Base):
         self.assertEqual(sorted(set(ArticleScore.objects.values_list("story_key", flat=True))),
                          ["ECB rate decision", "FIFA presidential election"])
 
+    @override_settings(OPENAI_API_KEY="")
+    def test_same_words_merge_without_ai(self):
+        for title, label in [("a", "Russian missile in Poland"), ("b", "Russian missiles in Poland"),
+                             ("c", "Russia missiles into Poland"), ("d", "Russian missile in Poland"),
+                             ("e", "Russian objects crash in Poland")]:
+            ArticleScore.objects.create(user=self.user, article=self.article(title), score=70, story_key=label)
+        self.assertEqual(scoring.merge_stories(self.user), 2)
+        self.assertEqual(sorted(set(ArticleScore.objects.values_list("story_key", flat=True))),
+                         ["Russian missile in Poland", "Russian objects crash in Poland"])
+
+    def test_loose_topic_stays_without_a_better_one(self):
+        merz = self.article("Merz urges firms to invest in Ukraine")
+        self.use_ai(ai_response("save_scores", {"items": [
+            {"n": 1, "score": 60, "topic": "Markets and central banks", "topic_fit": "loose", "new_topic": "",
+             "reason": "", "summary": "", "story": "Merz Ukraine investment"}]}))
+        scoring.score_new(self.user)
+        self.assertEqual(ArticleScore.objects.get(article=merz).topic, "Markets and central banks")
+
     def test_unlabelled_items_get_labels(self):
         a = self.article("Tashima challenges Infantino")
         ArticleScore.objects.create(user=self.user, article=a, score=70)

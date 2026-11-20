@@ -230,8 +230,8 @@ def score_with_ai(user, articles):
             except (TypeError, ValueError):
                 value = 0
             topic = topics.get(str(item.get("topic") or "").strip().lower(), "")
-            if item.get("topic_fit") == "loose":  # a stretched topic is worse than none
-                topic = ""
+            if item.get("topic_fit") == "loose" and str(item.get("new_topic") or "").strip():
+                topic = ""  # a stretched topic is worse than the better one the AI suggests
             new_topic = "" if topic else " ".join(str(item.get("new_topic") or "").split())[:80]
             if new_topic.lower() in topics:
                 topic, new_topic = topics[new_topic.lower()], ""
@@ -350,12 +350,42 @@ MERGE_SCHEMA = {
 }
 
 
+LABEL_STOPWORDS = {"a", "an", "the", "in", "into", "on", "of", "to", "for", "with", "after", "and", "at", "by", "over",
+                   "from", "as", "its", "his", "her", "their"}
+
+
+def label_key(label):
+    """Words of a label, cut to their first five letters, without small words: "Russian missiles into Poland"
+    and "Russian missile in Poland" give the same key."""
+    words = re.findall(r"\w+", label.lower())
+    return frozenset(w[:5] for w in words if w not in LABEL_STOPWORDS)
+
+
+def merge_similar_labels(user):
+    """Joins labels that are the same words in another form, without AI. Returns how many were merged away."""
+    counts = (ArticleScore.objects.filter(user=user, created_at__gte=timezone.now() - LOOKBACK).exclude(story_key="")
+              .values("story_key").annotate(n=Count("pk")).order_by("-n"))
+    keep, merged = {}, 0
+    for row in counts:
+        key = label_key(row["story_key"])
+        if not key:
+            continue
+        if key in keep:  # the most covered label with these words stays
+            ArticleScore.objects.filter(user=user, story_key=row["story_key"]).update(story_key=keep[key])
+            merged += 1
+        else:
+            keep[key] = row["story_key"]
+    return merged
+
+
 def merge_stories(user):
     """Labels are given in batches and refreshes, so one story can end up with several labels ("Tashima FIFA
-    race", "Tashima FIFA campaign"). A cheap pass over the labels alone (with example headlines) joins the ones
-    that are the same story. Returns how many labels were merged away."""
+    race", "Tashima FIFA campaign"). Labels that are the same words are joined first, without AI; then a cheap
+    pass over the labels alone (with example headlines) joins the ones that are the same story. Returns how many
+    labels were merged away."""
+    merged = merge_similar_labels(user)
     if ai.blocked(user):
-        return 0
+        return merged
     recent = ArticleScore.objects.filter(user=user, created_at__gte=timezone.now() - LOOKBACK, hidden=False) \
         .exclude(story_key="")
     titles = {}
@@ -365,7 +395,7 @@ def merge_stories(user):
             examples.append(title[:90])
     labels = list(titles)[:150]
     if len(labels) < 2:
-        return 0
+        return merged
     listing = "\n".join(f"{n}. {label} (e.g. " + " / ".join(f'"{t}"' for t in titles[label]) + ")"
                         for n, label in enumerate(labels, start=1))
     try:
@@ -383,8 +413,7 @@ def merge_stories(user):
         )
     except ai.AIError as exc:
         logger.info("Story merge skipped for %s: %s", user, exc)
-        return 0
-    merged = 0
+        return merged
     for group in data.get("groups", []):
         try:
             members = {labels[int(n) - 1] for n in group.get("labels", []) if 1 <= int(n) <= len(labels)}
