@@ -103,6 +103,15 @@ class AIScoringTests(Base):
         bank.refresh_from_db()
         self.assertEqual(bank.summary, "The ECB kept its rates unchanged.")
 
+    def test_stretched_topics_are_dropped(self):
+        bike = self.article("Triumph unveils Tiger 800")
+        self.use_ai(ai_response("save_scores", {"items": [
+            {"n": 1, "score": 60, "topic": "Markets and central banks", "topic_fit": "loose", "new_topic": "Triumph motorcycles",
+             "reason": "", "summary": "", "story": "Tiger 800 launch"}]}))
+        scoring.score_new(self.user)
+        score = ArticleScore.objects.get(article=bike)
+        self.assertEqual((score.topic, score.new_topic), ("", "Triumph motorcycles"))
+
     def test_falls_back_to_keywords_when_ai_fails(self):
         self.article("Central banks meet")
         self.use_ai(Exception("down"))

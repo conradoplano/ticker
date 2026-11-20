@@ -34,8 +34,14 @@ INSTRUCTIONS = """You rank news articles for one reader of a personal news feed.
 For every article give:
 - score: 0 to 100, how much this reader will want to read it. Use the whole range: 80+ only for clear matches
   with what they follow and like, under 30 for things they would skip.
-- topic: the followed topic it is really about, written exactly as in the list, or "" if none fits. Do not
-  stretch a topic (tennis is not Football).
+- topic: the followed topic it is really about, written exactly as in the list, or "" if none fits. Take
+  each topic's words literally and never stretch one to the nearest subject: "German cars" is cars from German
+  makers or the German car industry, so a Triumph (British) motorcycle is not German cars; tennis is not
+  Football; a specific model or brand topic ("Triumph Bonneville") only fits articles about that model or
+  brand. If nothing fits exactly, use "" and give a new_topic instead. When several fit, take the most
+  specific one ("German cars" over "Companies and earnings" for BMW's results).
+- topic_fit: "clear" if the article is squarely about that topic, "loose" if it only touches it or you had to
+  stretch; "none" if topic is "".
 - new_topic: if it matches no followed topic but is a real subject the reader might like to follow, a short
   topic name (two or three words); else "".
 - reason: one short line in English, max 90 characters, addressed to the reader, e.g. "You follow Markets; similar to
@@ -64,6 +70,7 @@ SCORE_SCHEMA = {
                     "n": {"type": "integer", "description": "The article's number in the list."},
                     "score": {"type": "integer", "minimum": 0, "maximum": 100},
                     "topic": {"type": "string"},
+                    "topic_fit": {"type": "string", "enum": ["clear", "loose", "none"]},
                     "new_topic": {"type": "string"},
                     "reason": {"type": "string"},
                     "summary": {"type": "string"},
@@ -223,6 +230,8 @@ def score_with_ai(user, articles):
             except (TypeError, ValueError):
                 value = 0
             topic = topics.get(str(item.get("topic") or "").strip().lower(), "")
+            if item.get("topic_fit") == "loose":  # a stretched topic is worse than none
+                topic = ""
             new_topic = "" if topic else " ".join(str(item.get("new_topic") or "").split())[:80]
             if new_topic.lower() in topics:
                 topic, new_topic = topics[new_topic.lower()], ""
