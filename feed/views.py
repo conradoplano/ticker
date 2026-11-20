@@ -317,6 +317,21 @@ def settings_page(request):
     })
 
 
+@setup_required
+@require_POST
+def reset_feed(request):
+    """A fresh start: removes the ranked articles and read marks, then ranks the last two days again with the
+    current topics. Thumbs, saved articles, topics, sources and the learned profile stay."""
+    user = request.user
+    ArticleScore.objects.filter(user=user).delete()
+    Rating.objects.filter(user=user, value__in=Rating.READ_VALUES).delete()
+    user.briefing, user.briefing_date = [], None
+    user.save(update_fields=["briefing", "briefing_date"])
+    refresh.refresh_in_background(user, Refresh.Trigger.MANUAL)
+    messages.success(request, "Your feed was reset. The articles of the last two days are being ranked again.")
+    return redirect("feed:home")
+
+
 @login_required
 @require_POST
 def learn_now(request):

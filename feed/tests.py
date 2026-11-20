@@ -622,6 +622,26 @@ class RefreshJobTests(Base):
         self.client.force_login(User.objects.create_user(email="sam@example.com", setup_completed=True))
         self.assertEqual(self.client.get(reverse("feed:refresh_status", args=[job.pk])).status_code, 404)
 
+    def test_reset_feed(self):
+        a = self.article("ECB holds rates")
+        ArticleScore.objects.create(user=self.user, article=a, score=80, story_key="ECB rate decision")
+        for value in ("opened", "read", "up", "saved"):
+            Rating.objects.create(user=self.user, article=a, value=value)
+        self.user.briefing, self.user.briefing_date = [{"id": a.id}], timezone.localdate()
+        self.user.save()
+        other = User.objects.create_user(email="sam@example.com")
+        ArticleScore.objects.create(user=other, article=a, score=50)
+        with mock.patch.object(refresh, "refresh_in_background") as background:
+            response = self.client.post(reverse("feed:reset_feed"))
+        self.assertRedirects(response, reverse("feed:home"), fetch_redirect_response=False)
+        background.assert_called_once()
+        self.assertFalse(ArticleScore.objects.filter(user=self.user).exists())
+        self.assertEqual(sorted(Rating.objects.filter(user=self.user).values_list("value", flat=True)), ["saved", "up"])
+        self.assertTrue(ArticleScore.objects.filter(user=other).exists())  # only their own feed
+        self.user.refresh_from_db()
+        self.assertIsNone(self.user.briefing_date)
+        self.assertContains(self.client.get(reverse("feed:settings")), "Reset my feed")
+
     def test_update_line(self):
         self.user.time_zone = "Europe/Berlin"
         self.user.refresh_times = ["07:00", "12:00"]

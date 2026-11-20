@@ -113,6 +113,11 @@
   <section class="card">
     <h3>Your account</h3>
     <div class="stack">
+      <form method="post" action="{% url 'feed:reset_feed' %}"
+            data-confirm="Reset your feed? All articles in it and your read marks are removed, and the last two days are ranked again with your current topics. Your thumbs, saved articles, topics and sources stay.">
+        {% csrf_token %}<button class="ghost wide">Reset my feed</button>
+      </form>
+      <p class="muted small" style="margin-top:.35rem">Starts your feed fresh, e.g. after changing your topics: removes all articles and read marks, then ranks the last two days again.</p>
       <form method="post" action="{% url 'feed:setup_restart' %}">{% csrf_token %}<button class="ghost wide">Run the setup again</button></form>
       <a class="btn ghost wide" href="{% url 'feed:export' %}">Export my data</a>
       <a class="btn danger wide" href="{% url 'feed:delete' %}">Delete my account</a>

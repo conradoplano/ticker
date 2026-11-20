@@ -16,6 +16,7 @@ urlpatterns = [
     path("a/<int:pk>/mute/", views.mute_topic, name="mute_topic"),
     path("settings/", views.settings_page, name="settings"),
     path("settings/learn/", views.learn_now, name="learn"),
+    path("settings/reset-feed/", views.reset_feed, name="reset_feed"),
     path("settings/export/", views.export, name="export"),
     path("settings/delete/", views.delete_account, name="delete"),
     path("manage/", manage.manage, name="manage"),
