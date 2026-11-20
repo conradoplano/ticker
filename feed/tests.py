@@ -207,6 +207,23 @@ class FeedViewTests(Base):
         self.client.get(reverse("feed:open", args=[self.a.id]))
         self.assertContains(self.client.get(reverse("feed:saved")), "item read")
 
+    def test_mark_as_read_and_unread(self):
+        url = reverse("feed:rate", args=[self.a.id])
+        card = self.client.post(url, {"value": "read"}, HTTP_HX_REQUEST="true")
+        self.assertContains(card, 'class="card item read"')
+        self.assertContains(card, "Mark as unread")
+        self.assertFalse(learning.learning_due(self.user))  # not a sign of interest
+        self.client.get(reverse("feed:open", args=[self.a.id]))
+        card = self.client.post(url, {"value": "read"}, HTTP_HX_REQUEST="true")  # unread clears opened too
+        self.assertContains(card, "Mark as read")
+        self.assertNotContains(card, "item read")
+        self.assertFalse(Rating.objects.filter(user=self.user, value__in=Rating.READ_VALUES).exists())
+        # a duplicate opened elsewhere makes the story read; unread clears it as well
+        other = Source.objects.create(name="Other", feed_url="https://other.example/feed")
+        dup = self.article("EZB hält die Zinsen", source=other, story=self.a)
+        self.client.get(reverse("feed:open", args=[dup.id]))
+        self.assertContains(self.client.post(url, {"value": "read"}, HTTP_HX_REQUEST="true"), "Mark as read")
+
     def test_thumbs(self):
         url = reverse("feed:rate", args=[self.a.id])
         self.assertContains(self.client.post(url, {"value": "up"}, HTTP_HX_REQUEST="true"), "aria-pressed=\"true\"")

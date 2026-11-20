@@ -84,7 +84,7 @@ def decorate(user, scores):
     # Opening the story from any of its sources counts as read.
     story_of = {a.id: lead for lead, articles in others.items() for a in articles}
     opened_stories = {story_of.get(a) for a in Rating.objects.filter(
-        user=user, value=Rating.Value.OPENED, article_id__in=list(story_of)).values_list("article_id", flat=True)}
+        user=user, value__in=Rating.READ_VALUES, article_id__in=list(story_of)).values_list("article_id", flat=True)}
     for s in scores:
         lead = s.article.story_id or s.article_id
         seen = {s.article.source_id}
@@ -94,8 +94,7 @@ def decorate(user, scores):
                 seen.add(article.source_id)
                 s.also.append(article)
         s.ratings = ratings[s.article_id]
-        if lead in opened_stories:
-            s.ratings.add(Rating.Value.OPENED)
+        s.is_read = lead in opened_stories
         s.is_new = bool(user.news_since and s.created_at > user.news_since)
     return scores
 

@@ -9,6 +9,7 @@
   <div class="actions">
     <form method="post" action="{% url 'feed:rate' article.id %}" hx-post="{% url 'feed:rate' article.id %}" hx-target="#saved-{{ article.id }}" hx-swap="outerHTML" class="inline">
       {% csrf_token %}<input type="hidden" name="where" value="saved"><input type="hidden" name="next" value="{% url 'feed:saved' %}">
+      <button name="value" value="read">{% if article.id in opened %}↺ Mark as unread{% else %}✓ Mark as read{% endif %}</button>
       <button name="value" value="saved">Remove</button>
     </form>
   </div>

@@ -44,6 +44,10 @@ class Rating(models.Model):
         NOT_INTERESTED = "down", "Not interesting"
         OPENED = "opened", "Opened"
         SAVED = "saved", "Saved for later"
+        READ = "read", "Marked as read"  # only greys it out; not a sign of interest
+
+    # Either of these means the person has read it.
+    READ_VALUES = ("opened", "read")
 
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="ratings")
     article = models.ForeignKey(Article, on_delete=models.CASCADE, related_name="ratings")

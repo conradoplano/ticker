@@ -83,7 +83,8 @@ def item_info(context, score):
         "topic": score.topic or None,
         "new_topic": score.new_topic or None,
         "reason": score.reason,
-        "rated": sorted(getattr(score, "ratings", set()) - {"opened"}),
+        "rated": sorted(getattr(score, "ratings", set()) - {"opened", "read"}),
+        "read": getattr(score, "is_read", False),
     }
     also = getattr(score, "also", [])
     if also:
@@ -231,7 +232,7 @@ def rate_item(context, args):
         score.hidden = True
     score.save(update_fields=["hidden"])
     return {"article_id": article.id, "ratings": sorted(
-        Rating.objects.filter(user=user, article=article).exclude(value="opened").values_list("value", flat=True)),
+        Rating.objects.filter(user=user, article=article).exclude(value__in=Rating.READ_VALUES).values_list("value", flat=True)),
         "muted_topic": muted}
 
 

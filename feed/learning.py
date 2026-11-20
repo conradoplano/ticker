@@ -24,7 +24,7 @@ LEARN_SCHEMA = {
 
 def learn(user):
     """Rewrites the learned profile from the rating history. Returns the new text; raises ai.AIError."""
-    ratings = list(Rating.objects.filter(user=user).exclude(value="opened").select_related("article__source")
+    ratings = list(Rating.objects.filter(user=user).exclude(value__in=Rating.READ_VALUES).select_related("article__source")
                    .order_by("-created_at")[:150])
     opened = list(Rating.objects.filter(user=user, value="opened").select_related("article__source")
                   .order_by("-created_at")[:50])
@@ -51,7 +51,7 @@ def learning_due(user, now=None):
     if user.learned_at and now - user.learned_at < LEARN_EVERY:
         return False
     since = user.learned_at or user.date_joined
-    return Rating.objects.filter(user=user, created_at__gte=since).exclude(value="opened").count() >= MIN_NEW_RATINGS
+    return Rating.objects.filter(user=user, created_at__gte=since).exclude(value__in=Rating.READ_VALUES).count() >= MIN_NEW_RATINGS
 
 
 BRIEFING_SCHEMA = {

@@ -6,6 +6,7 @@ from django.contrib import messages
 from django.contrib.auth import logout
 from django.contrib.auth.decorators import login_required
 from django.http import HttpResponse, JsonResponse
+from django.db.models import Q
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils import timezone
@@ -125,9 +126,16 @@ def rate(request, pk):
     user = request.user
     article = get_object_or_404(Article, pk=pk)
     value = request.POST.get("value")
-    if value not in ("up", "down", "saved"):
+    if value not in ("up", "down", "saved", "read"):
         return HttpResponse("Unknown rating", status=400)
-    existing = Rating.objects.filter(user=user, article=article, value=value)
+    if value == "read":
+        # Read or not, for the whole story: opening it from any source counts.
+        lead = article.story_id or article.id
+        story = Rating.objects.filter(user=user, value__in=Rating.READ_VALUES).filter(
+            Q(article_id=lead) | Q(article__story_id=lead))
+        existing = story if story.exists() else Rating.objects.none()
+    else:
+        existing = Rating.objects.filter(user=user, article=article, value=value)
     if existing.exists():
         existing.delete()
     else:
@@ -214,8 +222,8 @@ def saved(request):
 
 
 def opened_ids(user, article_ids):
-    """Which of these articles the person has opened."""
-    return set(Rating.objects.filter(user=user, article_id__in=article_ids, value=Rating.Value.OPENED)
+    """Which of these articles the person has opened or marked as read."""
+    return set(Rating.objects.filter(user=user, article_id__in=article_ids, value__in=Rating.READ_VALUES)
                .values_list("article_id", flat=True))
 
 
