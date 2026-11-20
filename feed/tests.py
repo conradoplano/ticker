@@ -75,11 +75,11 @@ class KeywordScoringTests(Base):
 class AIScoringTests(Base):
     def test_ai_scores_topics_and_discovery(self):
         bank = self.article("ECB holds rates")
-        chess = self.article("Chess final goes to tiebreaks")
+        chess = self.article("Chess final goes to tiebreaks", hours=2)
         create = self.use_ai(ai_response("save_scores", {"items": [
-            {"id": bank.id, "score": 88, "topic": "markets AND central banks", "new_topic": "", "reason": "You follow Markets",
+            {"n": 1, "score": 88, "topic": "markets AND central banks", "new_topic": "", "reason": "You follow Markets",
              "summary": "The ECB kept its rates unchanged."},
-            {"id": chess.id, "score": 55, "topic": "", "new_topic": "Chess", "reason": "Something new"},
+            {"n": 2, "score": 55, "topic": "", "new_topic": "Chess", "reason": "Something new"},
         ]}))
         self.assertEqual(scoring.score_new(self.user), (2, ArticleScore.Method.AI))
         bank_score = ArticleScore.objects.get(article=bank)
@@ -97,7 +97,7 @@ class AIScoringTests(Base):
         UserSource.objects.create(user=other, source=self.source)
         self.user = other
         create = self.use_ai(ai_response("save_scores", {"items": [
-            {"id": bank.id, "score": 70, "topic": "", "new_topic": "", "reason": "", "summary": "Something else."}]}))
+            {"n": 1, "score": 70, "topic": "", "new_topic": "", "reason": "", "summary": "Something else."}]}))
         scoring.score_new(other)
         self.assertIn("Summary: The ECB kept its rates unchanged.", create.call_args_list[0].kwargs["input"][0]["content"])
         bank.refresh_from_db()
@@ -148,19 +148,20 @@ class StoryTests(Base):
         old = self.article("Tashima challenges Infantino", hours=3)
         ArticleScore.objects.create(user=self.user, article=old, score=70, story_key="FIFA presidential race")
         a = self.article("Diallo enters FIFA race")
-        b = self.article("ECB holds rates")
+        b = self.article("ECB holds rates", hours=2)
         create = self.use_ai(ai_response("save_scores", {"items": [
-            {"id": a.id, "score": 70, "topic": "", "new_topic": "", "reason": "", "summary": "", "story": "fifa PRESIDENTIAL race"},
-            {"id": b.id, "score": 80, "topic": "", "new_topic": "", "reason": "", "summary": "", "story": "ECB rate decision"}]}))
+            {"n": 1, "score": 70, "topic": "", "new_topic": "", "reason": "", "summary": "", "story": "fifa PRESIDENTIAL race"},
+            {"n": 2, "score": 80, "topic": "", "new_topic": "", "reason": "", "summary": "", "story": "ECB rate decision"}]}))
         scoring.score_new(self.user)
-        self.assertIn("Current stories: FIFA presidential race", create.call_args_list[0].kwargs["input"][0]["content"])
+        self.assertIn('- FIFA presidential race (e.g. "Tashima challenges Infantino")',
+                      create.call_args_list[0].kwargs["input"][0]["content"])
         self.assertEqual(ArticleScore.objects.get(article=a).story_key, "FIFA presidential race")
         self.assertEqual(ArticleScore.objects.get(article=b).story_key, "ECB rate decision")
 
     def test_unlabelled_items_get_labels(self):
         a = self.article("Tashima challenges Infantino")
         ArticleScore.objects.create(user=self.user, article=a, score=70)
-        self.use_ai(ai_response("save_stories", {"items": [{"id": a.id, "story": "FIFA presidential race"}]}))
+        self.use_ai(ai_response("save_stories", {"items": [{"n": 1, "story": "FIFA presidential race"}]}))
         self.assertEqual(scoring.label_stories(self.user), 1)
         self.assertEqual(ArticleScore.objects.get(article=a).story_key, "FIFA presidential race")
 
@@ -183,11 +184,11 @@ class StoryFeedTests(Base):
         rows = build.items(self.user)
         self.assertEqual([s.article.title for s in rows], ["Tashima challenges Infantino", "ECB holds rates"])
         page = self.client.get(reverse("feed:home"))
-        self.assertContains(page, "Also in: ")
+        self.assertContains(page, " · also in ")
         self.assertContains(page, "France 24")
         self.assertContains(page, "and 1 more")
         self.assertContains(page, '<span class="story-name">FIFA presidential race</span>')
-        self.assertContains(page, "6 articles ›")
+        self.assertContains(page, '<span class="story-count">6</span>')
         self.assertNotContains(page, '<span class="story-name">ECB rate decision</span>')  # one article: no link
         self.assertEqual(len(build.items(self.user, mode="latest")), 2)
 

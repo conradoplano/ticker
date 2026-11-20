@@ -1,11 +1,12 @@
 {% load feed_tags %}
 <article class="card item{% if article.id in opened %} read{% endif %}" id="saved-{{ article.id }}">
-  <div>
+  <div class="body">
     <h3><a href="{% url 'feed:open' article.id %}" target="_blank" rel="noopener">{{ article.title }}</a></h3>
-    <div class="meta"><span>{{ article.source_name }}</span><span>·</span><span>{{ article.published_at|ago }}</span></div>
+    {% if article.one_line %}<p class="why">{{ article.one_line }}</p>{% endif %}
+    <p class="byline"><span class="source">{{ article.source_name }}</span> · {{ article.published_at|ago }}</p>
   </div>
   {% if article.image_url %}<img class="thumb" src="{{ article.image_url }}" alt="" loading="lazy" referrerpolicy="no-referrer">{% endif %}
-  {% if article.one_line %}<p class="why">{{ article.one_line }}</p>{% endif %}
+  <div class="foot">
   <div class="actions">
     <form method="post" action="{% url 'feed:rate' article.id %}" hx-post="{% url 'feed:rate' article.id %}" hx-target="#saved-{{ article.id }}" hx-swap="outerHTML" class="icon-row">
       {% csrf_token %}<input type="hidden" name="where" value="saved"><input type="hidden" name="next" value="{% url 'feed:saved' %}">
@@ -16,5 +17,6 @@
       {% endif %}
       <button name="value" value="saved" class="icon-btn" title="Remove from saved" aria-label="Remove from saved">{% include "feed/_icon.html" with name="remove" %}</button>
     </form>
+  </div>
   </div>
 </article>

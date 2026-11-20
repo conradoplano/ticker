@@ -1,19 +1,20 @@
 {% load feed_tags %}
 <article class="card item{% if s.is_discovery %} discovery{% endif %}{% if s.is_read %} read{% endif %}" id="item-{{ s.article_id }}">
-  <div>
-    <h3><a href="{% url 'feed:open' s.article_id %}" target="_blank" rel="noopener">{{ s.article.title }}</a></h3>
-    <div class="meta">
-      <span>{{ s.article.source_name }}</span><span>·</span><span>{{ s.article.published_at|ago }}</span>
-      {% if s.topic %}<a class="tag topic" href="{% url 'feed:home' %}?topic={{ s.topic|urlencode }}" title="{{ s.reason }}">{{ s.topic }}</a>{% elif s.new_topic %}<a class="tag new-topic" href="{% url 'feed:home' %}?topic={{ s.new_topic|urlencode }}" title="{{ s.reason }}">New topic: {{ s.new_topic }}</a>{% endif %}
+  <div class="body">
+    <div class="kicker">
+      {% if s.topic %}<a class="kicker-topic" href="{% url 'feed:home' %}?topic={{ s.topic|urlencode }}" title="{{ s.reason }}">{{ s.topic }}</a>
+      {% elif s.new_topic %}<a class="kicker-topic new-topic" href="{% url 'feed:home' %}?topic={{ s.new_topic|urlencode }}" title="{{ s.reason }}">New topic · {{ s.new_topic }}</a>{% endif %}
       {% if s.is_read %}<span class="tag read-tag">Read</span>{% elif s.is_new %}<span class="tag fresh">New</span>{% endif %}
     </div>
+    <h3><a href="{% url 'feed:open' s.article_id %}" target="_blank" rel="noopener">{{ s.article.title }}</a></h3>
+    {% if s.article.one_line %}<p class="why">{{ s.article.one_line }}</p>{% endif %}
+    <p class="byline"><span class="source">{{ s.article.source_name }}</span> · {{ s.article.published_at|ago }}{% if s.also %} · also in {% for a in s.also_shown %}<a href="{% url 'feed:open' a.id %}" target="_blank" rel="noopener">{{ a.source_name }}</a>{% if not forloop.last %}, {% endif %}{% endfor %}{% if s.also_more %} and {{ s.also_more }} more{% endif %}{% endif %}</p>
   </div>
   {% if s.article.image_url %}<img class="thumb" src="{{ s.article.image_url }}" alt="" loading="lazy" referrerpolicy="no-referrer">{% endif %}
-  {% if s.article.one_line %}<p class="why">{{ s.article.one_line }}</p>{% endif %}
-  {% if s.story_key and s.story_size > 1 %}
-    <a class="story-link" href="{% url 'feed:home' %}?story={{ s.story_key|urlencode }}{% if f.read %}&amp;read=1{% endif %}" title="All articles on this story">{% include "feed/_icon.html" with name="story" %}<span class="story-name">{{ s.story_key }}</span><span class="story-count">{{ s.story_size }} articles ›</span></a>
-  {% endif %}
-  {% if s.also %}<p class="also">Also in: {% for a in s.also_shown %}<a href="{% url 'feed:open' a.id %}" target="_blank" rel="noopener">{{ a.source_name }}</a>{% if not forloop.last %}, {% endif %}{% endfor %}{% if s.also_more %} and {{ s.also_more }} more{% endif %}</p>{% endif %}
+  <div class="foot">
+    {% if s.story_key and s.story_size > 1 %}
+      <a class="story-link" href="{% url 'feed:home' %}?story={{ s.story_key|urlencode }}{% if f.read %}&amp;read=1{% endif %}" title="All articles on this story">{% include "feed/_icon.html" with name="story" %}<span class="story-name">{{ s.story_key }}</span><span class="story-count">{{ s.story_size }}</span></a>
+    {% endif %}
   <div class="actions">
     {% if s.is_discovery %}
       <form method="post" action="{% url 'feed:follow_topic' s.article_id %}" hx-post="{% url 'feed:follow_topic' s.article_id %}" hx-target="#item-{{ s.article_id }}" hx-swap="outerHTML" class="inline">
@@ -42,5 +43,6 @@
         </div>
       </details>
     {% endif %}
+  </div>
   </div>
 </article>
