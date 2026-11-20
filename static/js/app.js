@@ -39,6 +39,24 @@
     sync();
   });
 
+  // Opening an article (in a new tab) dims it here straight away; the server records it as read.
+  const markRead = (event) => {
+    if (event.type === 'auxclick' && event.button !== 1) return;
+    const link = event.target.closest('a[href*="/open/"]');
+    if (!link) return;
+    const item = link.closest('.item');
+    if (!item || item.classList.contains('read')) return;
+    item.classList.add('read');
+    const meta = item.querySelector('.meta');
+    if (meta && !meta.querySelector('.read-tag')) {
+      const fresh = meta.querySelector('.tag.fresh');
+      if (fresh) fresh.remove();
+      meta.append(Object.assign(document.createElement('span'), { className: 'tag read-tag', textContent: 'Read' }));
+    }
+  };
+  document.addEventListener('click', markRead);
+  document.addEventListener('auxclick', markRead);
+
   // Filters on the feed: changing a select submits the form.
   document.querySelectorAll('form.filters select').forEach((select) => {
     select.addEventListener('change', () => select.form.requestSubmit());

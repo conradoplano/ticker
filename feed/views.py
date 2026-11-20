@@ -99,7 +99,8 @@ def briefing(request):
         learning.build_briefing(user)
     first_today = request.session.get("briefing_seen") != str(today)
     request.session["briefing_seen"] = str(today)
-    return render(request, "feed/_briefing.html", {"items": user.briefing, "open": first_today})
+    return render(request, "feed/_briefing.html", {"items": user.briefing, "open": first_today,
+                                                   "opened": opened_ids(user, [b["id"] for b in user.briefing])})
 
 
 @setup_required
@@ -142,7 +143,7 @@ def rate(request, pk):
     if request.POST.get("where") == "saved":
         if not Rating.objects.filter(user=user, article=article, value="saved").exists():
             return HttpResponse("")
-        return render(request, "feed/_saved_item.html", {"article": article})
+        return render(request, "feed/_saved_item.html", {"article": article, "opened": opened_ids(user, [article.id])})
     return card_response(request, score)
 
 
@@ -207,7 +208,15 @@ def refresh_now(request):
 def saved(request):
     articles = (Article.objects.filter(ratings__user=request.user, ratings__value="saved")
                 .select_related("source").order_by("-ratings__created_at"))
-    return render(request, "feed/saved.html", {"articles": articles})
+    articles = list(articles)
+    return render(request, "feed/saved.html", {"articles": articles,
+                                               "opened": opened_ids(request.user, [a.id for a in articles])})
+
+
+def opened_ids(user, article_ids):
+    """Which of these articles the person has opened."""
+    return set(Rating.objects.filter(user=user, article_id__in=article_ids, value=Rating.Value.OPENED)
+               .values_list("article_id", flat=True))
 
 
 def stats(user):

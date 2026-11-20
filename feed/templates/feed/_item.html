@@ -1,11 +1,11 @@
 {% load feed_tags %}
-<article class="card item{% if s.is_discovery %} discovery{% endif %}" id="item-{{ s.article_id }}">
+<article class="card item{% if s.is_discovery %} discovery{% endif %}{% if 'opened' in s.ratings %} read{% endif %}" id="item-{{ s.article_id }}">
   <div>
     <h3><a href="{% url 'feed:open' s.article_id %}" target="_blank" rel="noopener">{{ s.article.title }}</a></h3>
     <div class="meta">
       <span>{{ s.article.source_name }}</span><span>·</span><span>{{ s.article.published_at|ago }}</span>
       {% if s.topic %}<span class="tag topic" title="{{ s.reason }}">{{ s.topic }}</span>{% elif s.new_topic %}<span class="tag new-topic" title="{{ s.reason }}">New topic: {{ s.new_topic }}</span>{% endif %}
-      {% if s.is_new %}<span class="tag fresh">New</span>{% endif %}
+      {% if 'opened' in s.ratings %}<span class="tag read-tag">Read</span>{% elif s.is_new %}<span class="tag fresh">New</span>{% endif %}
     </div>
   </div>
   {% if s.article.image_url %}<img class="thumb" src="{{ s.article.image_url }}" alt="" loading="lazy" referrerpolicy="no-referrer">{% endif %}

@@ -194,6 +194,19 @@ class FeedViewTests(Base):
         self.assertEqual(response["Location"], self.a.link)
         self.assertTrue(Rating.objects.filter(user=self.user, article=self.a, value="opened").exists())
 
+    def test_opened_articles_are_shown_as_read(self):
+        dup_source = Source.objects.create(name="Other", feed_url="https://other.example/feed")
+        dup = self.article("EZB hält die Zinsen", source=dup_source, story=self.a)
+        page = self.client.get(reverse("feed:home"))
+        self.assertNotContains(page, "item read")
+        self.client.get(reverse("feed:open", args=[dup.id]))  # opened from "Also in"
+        page = self.client.get(reverse("feed:home"))
+        self.assertContains(page, 'class="card item read"')
+        self.assertContains(page, ">Read<")
+        self.client.post(reverse("feed:rate", args=[self.a.id]), {"value": "saved"})
+        self.client.get(reverse("feed:open", args=[self.a.id]))
+        self.assertContains(self.client.get(reverse("feed:saved")), "item read")
+
     def test_thumbs(self):
         url = reverse("feed:rate", args=[self.a.id])
         self.assertContains(self.client.post(url, {"value": "up"}, HTTP_HX_REQUEST="true"), "aria-pressed=\"true\"")
