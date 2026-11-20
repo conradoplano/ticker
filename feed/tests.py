@@ -158,6 +158,17 @@ class StoryTests(Base):
         self.assertEqual(ArticleScore.objects.get(article=a).story_key, "FIFA presidential race")
         self.assertEqual(ArticleScore.objects.get(article=b).story_key, "ECB rate decision")
 
+    def test_labels_of_the_same_story_are_merged(self):
+        for title, label in [("Tashima stays in race", "Tashima FIFA race"), ("Tashima vows clean FIFA", "Tashima FIFA campaign"),
+                             ("Infantino faces two rivals", "Infantino reelection challenge"), ("ECB holds rates", "ECB rate decision")]:
+            ArticleScore.objects.create(user=self.user, article=self.article(title), score=70, story_key=label)
+        create = self.use_ai(ai_response("save_groups", {"groups": [
+            {"labels": [1, 2, 3], "name": "FIFA presidential election"}, {"labels": [4], "name": "ECB"}]}))
+        self.assertEqual(scoring.merge_stories(self.user), 3)
+        self.assertIn("Tashima FIFA race", create.call_args.kwargs["input"][0]["content"])
+        self.assertEqual(sorted(set(ArticleScore.objects.values_list("story_key", flat=True))),
+                         ["ECB rate decision", "FIFA presidential election"])
+
     def test_unlabelled_items_get_labels(self):
         a = self.article("Tashima challenges Infantino")
         ArticleScore.objects.create(user=self.user, article=a, score=70)
