@@ -8,7 +8,7 @@ against AI_GLOBAL_DAILY_LIMIT_USD. AI is only used once an admin has approved th
 """
 import json
 import logging
-from datetime import datetime, time
+from datetime import datetime, time, timedelta
 from decimal import Decimal
 
 from django.conf import settings
@@ -56,15 +56,37 @@ def daily_limit(user):
     return user.ai_daily_limit if user.ai_daily_limit is not None else settings.AI_DAILY_LIMIT_USD
 
 
+def trial_ends(user):
+    """When a new person's free AI trial ends (they can use AI before an admin approves them)."""
+    return user.date_joined + timedelta(hours=settings.AI_TRIAL_HOURS)
+
+
+def on_trial(user, now=None):
+    """True while a person who isn't approved yet is in their first AI_TRIAL_HOURS."""
+    if user.ai_approved or user.is_staff or settings.AI_TRIAL_HOURS <= 0:
+        return False
+    return (now or timezone.now()) < trial_ends(user)
+
+
+def trial_spent_today():
+    """What everyone on a trial (not approved, not admin) spent today: capped so mass sign-ups can't run up costs."""
+    return spent(today_start(), user__ai_approved=False, user__is_staff=False)
+
+
 def blocked(user):
     """Why the person can't use AI right now, or "" if they can."""
     if not settings.OPENAI_API_KEY:
         return "AI isn't set up (OPENAI_API_KEY is missing)."
-    if not (user.ai_approved or user.is_staff):
-        return "AI is switched on for you once an admin has approved it."
     limit = daily_limit(user)
     if limit <= 0:
         return "AI is switched off for you."
+    if not (user.ai_approved or user.is_staff):
+        if not on_trial(user):
+            return "Your free AI day has ended. AI is switched on again once an admin has approved you."
+        if spent(user.date_joined, user=user) >= min(limit, settings.AI_TRIAL_LIMIT_USD):
+            return "You've used the free AI for new accounts. It is switched on again once an admin has approved you."
+        if trial_spent_today() >= settings.AI_TRIAL_GLOBAL_DAILY_LIMIT_USD:
+            return "Free AI for new accounts is used up for today. Please try again tomorrow."
     if spent(today_start(), user=user) >= limit:
         return f"You've used today's AI budget (${limit:.2f}). It starts again tomorrow."
     if spent(today_start()) >= settings.AI_GLOBAL_DAILY_LIMIT_USD:

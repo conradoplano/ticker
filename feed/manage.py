@@ -44,6 +44,8 @@ def manage(request):
         person.limit = ai.daily_limit(person)
         person.over_limit = (person.cost_today or 0) >= person.limit
         person.ai_on = person.ai_approved or person.is_staff
+        person.on_trial = ai.on_trial(person)
+        person.trial_ends = ai.trial_ends(person)
     by_kind = (AIUsage.objects.values("kind")
                .annotate(calls=Count("pk"), month=Sum("cost", filter=Q(created_at__gte=month)), total=Sum("cost"))
                .order_by("-total"))
@@ -63,6 +65,10 @@ def manage(request):
         "global_limit": settings.AI_GLOBAL_DAILY_LIMIT_USD,
         "default_limit": settings.AI_DAILY_LIMIT_USD,
         "ai_configured": bool(settings.OPENAI_API_KEY),
+        "trial_hours": settings.AI_TRIAL_HOURS,
+        "trial_limit": settings.AI_TRIAL_LIMIT_USD,
+        "trial_global_limit": settings.AI_TRIAL_GLOBAL_DAILY_LIMIT_USD,
+        "trial_today": ai.trial_spent_today(),
         # Calls whose model has no price: they count as $0 against the limits.
         "unpriced": AIUsage.objects.filter(cost=0, input_tokens__gt=0).values("model").annotate(calls=Count("pk")),
     })

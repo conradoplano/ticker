@@ -70,9 +70,12 @@ Every push to `main` runs the tests and publishes `ghcr.io/conradoplano/ticker:l
 put the DSM reverse proxy with HTTPS in front of port 5063. The scheduler runs inside the same container
 (`RUN_SCHEDULER=true`).
 
-AI uses OpenAI as in Popcorn (`OPENAI_API_KEY`, `AI_MODEL`, `AI_EFFORT`). A person uses AI once an admin
-ticks **AI approved**; `AI_DAILY_LIMIT_USD` (per person) and `AI_GLOBAL_DAILY_LIMIT_USD` cap the cost, and
-every call is recorded in the admin under AI usage.
+AI uses OpenAI as in Popcorn (`OPENAI_API_KEY`, `AI_MODEL`, `AI_EFFORT`). New people get a free AI trial for
+their first `AI_TRIAL_HOURS` (default 24), so the setup wizard and the first feed work straight away. The trial
+is capped at `AI_TRIAL_LIMIT_USD` per person (default $0.10) and `AI_TRIAL_GLOBAL_DAILY_LIMIT_USD` per day for all
+trial users together (default $0.50), so mass sign-ups can't run up costs. After that, a person uses AI once an
+admin approves them on the Admin page (Settings → Open admin). `AI_DAILY_LIMIT_USD` (per person, changeable per
+person) and `AI_GLOBAL_DAILY_LIMIT_USD` cap the cost for everyone, and every call is recorded with its cost.
 
 ## Licence
 

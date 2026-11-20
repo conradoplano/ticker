@@ -44,6 +44,10 @@ services:
       # What AI may cost per day in USD: per person (changeable per person on the admin page) and in total
       AI_DAILY_LIMIT_USD: "0.10"
       AI_GLOBAL_DAILY_LIMIT_USD: "1.00"
+      # Free AI for new people before approval: hours, USD per person, USD per day for all new people together
+      AI_TRIAL_HOURS: "24"
+      AI_TRIAL_LIMIT_USD: "0.10"
+      AI_TRIAL_GLOBAL_DAILY_LIMIT_USD: "0.50"
       # Anyone can register; "false": only with adduser
       REGISTRATION_OPEN: "true"
       # Address of the app for links in emails (default: the first CSRF_TRUSTED_ORIGINS entry)

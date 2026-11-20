@@ -165,6 +165,11 @@ AI_EFFORT = os.environ.get("AI_EFFORT", "low")
 # What AI may cost per day in USD: per person (admins can change it per person) and for all together.
 AI_DAILY_LIMIT_USD = Decimal(os.environ.get("AI_DAILY_LIMIT_USD", "0.10"))
 AI_GLOBAL_DAILY_LIMIT_USD = Decimal(os.environ.get("AI_GLOBAL_DAILY_LIMIT_USD", "1.00"))
+# New people can use AI for their first hours before an admin approves them, so the setup wizard and the first
+# feed work. Capped per person for the whole trial, and for all trial users together per day. 0 hours: no trial.
+AI_TRIAL_HOURS = int(os.environ.get("AI_TRIAL_HOURS", 24))
+AI_TRIAL_LIMIT_USD = Decimal(os.environ.get("AI_TRIAL_LIMIT_USD", "0.10"))
+AI_TRIAL_GLOBAL_DAILY_LIMIT_USD = Decimal(os.environ.get("AI_TRIAL_GLOBAL_DAILY_LIMIT_USD", "0.50"))
 
 # Feed fetching: how long one request may take, and the User-Agent sent to publishers.
 FETCH_TIMEOUT = int(os.environ.get("FETCH_TIMEOUT", 15))

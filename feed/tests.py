@@ -1,5 +1,6 @@
 import json
 from datetime import datetime, timedelta
+from decimal import Decimal
 from types import SimpleNamespace
 from unittest import mock
 from zoneinfo import ZoneInfo
@@ -327,3 +328,50 @@ class AdminPageTests(TestCase):
         self.client.post(reverse("feed:manage_person", args=[self.admin.pk]), {"action": "suspend"})
         self.admin.refresh_from_db()
         self.assertTrue(self.admin.is_active)
+
+
+@override_settings(OPENAI_API_KEY="test-key", AI_TRIAL_HOURS=24, AI_TRIAL_LIMIT_USD=Decimal("0.10"),
+                   AI_TRIAL_GLOBAL_DAILY_LIMIT_USD=Decimal("0.50"), AI_DAILY_LIMIT_USD=Decimal("0.10"))
+class AITrialTests(TestCase):
+    def setUp(self):
+        self.new = User.objects.create_user(email="new@example.com")
+
+    def test_new_people_get_a_day_of_ai(self):
+        self.assertTrue(ai.on_trial(self.new))
+        self.assertEqual(ai.blocked(self.new), "")
+        User.objects.filter(pk=self.new.pk).update(date_joined=timezone.now() - timedelta(hours=25))
+        self.new.refresh_from_db()
+        self.assertIn("free AI day has ended", ai.blocked(self.new))
+        self.new.ai_approved = True
+        self.assertEqual(ai.blocked(self.new), "")
+
+    def test_trial_is_capped_per_person_for_the_whole_trial(self):
+        User.objects.filter(pk=self.new.pk).update(date_joined=timezone.now() - timedelta(hours=23))
+        self.new.refresh_from_db()
+        AIUsage.objects.create(user=self.new, kind="setup", cost="0.06", created_at=timezone.now() - timedelta(hours=22))
+        AIUsage.objects.create(user=self.new, kind="score", cost="0.05")
+        self.assertIn("used the free AI", ai.blocked(self.new))
+
+    def test_all_trials_together_are_capped_per_day(self):
+        for i in range(6):
+            other = User.objects.create_user(email=f"bot{i}@example.com")
+            AIUsage.objects.create(user=other, kind="setup", cost="0.09")
+        self.assertIn("used up for today", ai.blocked(self.new))
+        approved = User.objects.create_user(email="ok@example.com", ai_approved=True)
+        self.assertEqual(ai.blocked(approved), "")  # approved people don't depend on the trial budget
+
+    def test_admin_switching_off_also_ends_the_trial(self):
+        self.new.ai_daily_limit = Decimal("0")
+        self.assertIn("switched off", ai.blocked(self.new))
+
+    @override_settings(AI_TRIAL_HOURS=0)
+    def test_no_trial(self):
+        self.assertIn("free AI day has ended", ai.blocked(self.new))
+
+    def test_admin_page_shows_the_trial(self):
+        admin = User.objects.create_user(email="admin@example.com", is_staff=True)
+        self.client.force_login(admin)
+        page = self.client.get(reverse("feed:manage"))
+        self.assertContains(page, "AI trial")
+        self.assertContains(page, "Free AI until")
+        self.assertContains(page, "New accounts on trial, today")
