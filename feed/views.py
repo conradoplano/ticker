@@ -1,5 +1,6 @@
 import json
-from datetime import timedelta
+from datetime import datetime, timedelta
+from datetime import timezone as dt_timezone
 
 from django.conf import settings
 from django.contrib import messages
@@ -58,7 +59,17 @@ def filters(request):
         "topic": request.GET.get("topic", "")[:80],
         "source": int(source) if source.isdigit() else "",
         "q": request.GET.get("q", "").strip()[:100],
+        "read": request.GET.get("read") == "1",
+        "story": " ".join(request.GET.get("story", "").split())[:120],
     }
+
+
+def page_time(request):
+    """When the first page was shown (kept by "more" links), so later pages don't shift."""
+    try:
+        return datetime.fromtimestamp(float(request.GET["asof"]), tz=dt_timezone.utc)
+    except (KeyError, ValueError, OverflowError, OSError):
+        return timezone.now()
 
 
 @setup_required
@@ -71,10 +82,14 @@ def home(request):
         number = max(1, int(request.GET.get("page", 1)))
     except ValueError:
         number = 1
-    scores, more = build.page(user, number, **chosen)
+    asof = page_time(request)
+    scores, more = build.page(user, number, asof=asof, **chosen)
+    query = {k: v for k, v in chosen.items() if v and not (k == "mode" and v == "best")}
+    if query.get("read"):
+        query["read"] = 1
     context = {
-        "scores": scores, "more": more, "next_page": number + 1, "f": chosen,
-        "query": {k: v for k, v in chosen.items() if v and not (k == "mode" and v == "best")},
+        "scores": scores, "more": more, "next_page": number + 1, "f": chosen, "query": query,
+        "asof": f"{asof.timestamp():.3f}",
     }
     if is_htmx(request) and number > 1:
         return render(request, "feed/_items.html", context)
@@ -82,9 +97,11 @@ def home(request):
     context.update({
         "topics": user.topics.filter(active=True),
         "follows": UserSource.objects.filter(user=user, active=True).select_related("source"),
-        "show_briefing": not any(chosen[k] for k in ("topic", "source", "q")) and chosen["mode"] == "best",
+        "show_briefing": not any(chosen[k] for k in ("topic", "source", "q", "story")) and chosen["mode"] == "best",
         "briefing_ready": user.briefing_date == today,
         "has_sources": UserSource.objects.filter(user=user, active=True).exists(),
+        "read_hidden": 0 if chosen["read"] else build.read_count(user, asof=asof, **chosen),
+        "topic_followed": bool(chosen["topic"]) and user.topics.filter(name__iexact=chosen["topic"], active=True).exists(),
     })
     if is_htmx(request):
         return render(request, "feed/_list.html", context)

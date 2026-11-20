@@ -1,8 +1,10 @@
 {% load feed_tags %}
 {% for s in scores %}{% include "feed/_item.html" %}{% endfor %}
 {% if more %}
-  <div class="more" id="more-{{ next_page }}">
-    <a class="btn ghost" href="{% url 'feed:home' %}{% query page=next_page %}"
-       hx-get="{% url 'feed:home' %}{% query page=next_page %}" hx-target="#more-{{ next_page }}" hx-swap="outerHTML">Show more</a>
+  {# Loads the next page by itself when scrolled into view; the link is the fallback. #}
+  <div class="more" id="more-{{ next_page }}" hx-get="{% url 'feed:home' %}{% query page=next_page asof=asof %}"
+       hx-trigger="intersect once" hx-target="this" hx-swap="outerHTML">
+    <a class="btn ghost" href="{% url 'feed:home' %}{% query page=next_page asof=asof %}">Show more</a>
+    <div class="spinner small-spinner htmx-indicator" aria-hidden="true"></div>
   </div>
 {% endif %}

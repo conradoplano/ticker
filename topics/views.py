@@ -3,6 +3,7 @@ from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.shortcuts import get_object_or_404, redirect
 from django.urls import reverse
+from django.utils.http import url_has_allowed_host_and_scheme
 from django.views.decorators.http import require_POST
 
 from feed.models import ArticleScore
@@ -32,6 +33,10 @@ def add(request):
             topic.save(update_fields=["active"])
         Mute.objects.filter(user=request.user, subject__iexact=name).delete()
         ArticleScore.objects.filter(user=request.user, new_topic__iexact=name).update(topic=topic.name, new_topic="")
+    next_url = request.POST.get("next", "")
+    if url_has_allowed_host_and_scheme(next_url, {request.get_host()}) and next_url.startswith("/"):
+        messages.success(request, "Following it now.")
+        return redirect(next_url)
     return back()
 
 

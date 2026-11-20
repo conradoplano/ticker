@@ -134,6 +134,13 @@ form.inline { display: inline; }
 .score { font-variant-numeric: tabular-nums; }
 .empty { text-align: center; padding: 2rem 1rem; }
 .more { text-align: center; margin: 1rem 0; }
+.more .small-spinner { width: 1.5rem; height: 1.5rem; border-width: 3px; margin: .75rem auto; }
+.more.htmx-request .btn { display: none; }
+a.tag { text-decoration: none; }
+a.tag:hover { filter: brightness(.95); text-decoration: underline; }
+.read-bar { margin: -.25rem 0 .75rem; min-height: 1.2em; }
+.topic-head h2 { margin: 0; }
+.topic-head p { margin: .35rem 0 0; }
 
 /* Settings */
 .list-row { display: flex; align-items: center; justify-content: space-between; gap: .5rem; padding: .5rem 0; border-top: 1px solid var(--border); }

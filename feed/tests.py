@@ -85,7 +85,7 @@ class AIScoringTests(Base):
         bank_score = ArticleScore.objects.get(article=bank)
         self.assertEqual((bank_score.score, bank_score.topic), (88, "Markets and central banks"))
         self.assertTrue(ArticleScore.objects.get(article=chess).is_discovery)
-        prompt = create.call_args.kwargs["input"][0]["content"]
+        prompt = create.call_args_list[0].kwargs["input"][0]["content"]
         self.assertIn("Followed topics: Markets and central banks", prompt)
         self.assertEqual(AIUsage.objects.get().kind, "score")
         bank.refresh_from_db()
@@ -99,7 +99,7 @@ class AIScoringTests(Base):
         create = self.use_ai(ai_response("save_scores", {"items": [
             {"id": bank.id, "score": 70, "topic": "", "new_topic": "", "reason": "", "summary": "Something else."}]}))
         scoring.score_new(other)
-        self.assertIn("Summary: The ECB kept its rates unchanged.", create.call_args.kwargs["input"][0]["content"])
+        self.assertIn("Summary: The ECB kept its rates unchanged.", create.call_args_list[0].kwargs["input"][0]["content"])
         bank.refresh_from_db()
         self.assertEqual(bank.summary, "The ECB kept its rates unchanged.")
 
@@ -140,6 +140,68 @@ class OneLineTests(TestCase):
         snippet = "The central bank held its deposit rate at two percent. Analysts had expected this. More follows."
         self.assertEqual(Article(snippet=snippet).one_line, "The central bank held its deposit rate at two percent.")
         self.assertEqual(Article(snippet="").one_line, "")
+
+
+@override_settings(OPENAI_API_KEY="test-key")
+class StoryTests(Base):
+    def test_ai_labels_stories_and_reuses_current_ones(self):
+        old = self.article("Tashima challenges Infantino", hours=3)
+        ArticleScore.objects.create(user=self.user, article=old, score=70, story_key="FIFA presidential race")
+        a = self.article("Diallo enters FIFA race")
+        b = self.article("ECB holds rates")
+        create = self.use_ai(ai_response("save_scores", {"items": [
+            {"id": a.id, "score": 70, "topic": "", "new_topic": "", "reason": "", "summary": "", "story": "fifa PRESIDENTIAL race"},
+            {"id": b.id, "score": 80, "topic": "", "new_topic": "", "reason": "", "summary": "", "story": "ECB rate decision"}]}))
+        scoring.score_new(self.user)
+        self.assertIn("Current stories: FIFA presidential race", create.call_args_list[0].kwargs["input"][0]["content"])
+        self.assertEqual(ArticleScore.objects.get(article=a).story_key, "FIFA presidential race")
+        self.assertEqual(ArticleScore.objects.get(article=b).story_key, "ECB rate decision")
+
+    def test_unlabelled_items_get_labels(self):
+        a = self.article("Tashima challenges Infantino")
+        ArticleScore.objects.create(user=self.user, article=a, score=70)
+        self.use_ai(ai_response("save_stories", {"items": [{"id": a.id, "story": "FIFA presidential race"}]}))
+        self.assertEqual(scoring.label_stories(self.user), 1)
+        self.assertEqual(ArticleScore.objects.get(article=a).story_key, "FIFA presidential race")
+
+
+class StoryFeedTests(Base):
+    def setUp(self):
+        super().setUp()
+        self.client.force_login(self.user)
+        self.fifa = []
+        for i, (title, publisher) in enumerate([("Tashima challenges Infantino", "ESPN"), ("Diallo enters FIFA race", "France 24"),
+                                                 ("Infantino faces two rivals", "NDTV"), ("FIFA race heats up", "Sportstar"),
+                                                 ("Quiet reformer takes on Infantino", "ABC"), ("Tashima stays in race", "Gleaner")]):
+            article = self.article(title, hours=1 + i, publisher=publisher)
+            self.fifa.append(ArticleScore.objects.create(user=self.user, article=article, score=80 - i,
+                                                         story_key="FIFA presidential race"))
+        self.ecb = ArticleScore.objects.create(user=self.user, article=self.article("ECB holds rates"), score=60,
+                                               story_key="ECB rate decision")
+
+    def test_one_card_per_story(self):
+        rows = build.items(self.user)
+        self.assertEqual([s.article.title for s in rows], ["Tashima challenges Infantino", "ECB holds rates"])
+        page = self.client.get(reverse("feed:home"))
+        self.assertContains(page, "Also in: ")
+        self.assertContains(page, "France 24")
+        self.assertContains(page, "and 1 more")
+        self.assertContains(page, "All 6 on this story")
+        self.assertEqual(len(build.items(self.user, mode="latest")), 2)
+
+    def test_story_view(self):
+        page = self.client.get(reverse("feed:home") + "?story=FIFA%20presidential%20race")
+        self.assertEqual(len(page.context["scores"]), 6)
+        self.assertContains(page, "Every article on this story")
+
+    def test_reading_one_article_hides_the_story_until_there_is_news(self):
+        self.client.get(reverse("feed:open", args=[self.fifa[2].article_id]))
+        self.assertEqual([s.article.title for s in build.items(self.user)], ["ECB holds rates"])
+        self.assertContains(self.client.get(reverse("feed:home")), "1 read story hidden")
+        later = ArticleScore.objects.create(user=self.user, article=self.article("Infantino responds", hours=0),
+                                            score=75, story_key="FIFA presidential race")
+        self.assertEqual([s.article.title for s in build.items(self.user)][0], "Infantino responds")
+        self.assertIn(later.pk, [s.pk for s in build.items(self.user)])
 
 
 class FeedBuildTests(Base):
@@ -200,7 +262,8 @@ class FeedViewTests(Base):
         page = self.client.get(reverse("feed:home"))
         self.assertNotContains(page, "item read")
         self.client.get(reverse("feed:open", args=[dup.id]))  # opened from "Also in"
-        page = self.client.get(reverse("feed:home"))
+        self.assertNotContains(self.client.get(reverse("feed:home")), "ECB holds rates")
+        page = self.client.get(reverse("feed:home") + "?read=1")
         self.assertContains(page, 'class="card item read"')
         self.assertContains(page, ">Read<")
         self.client.post(reverse("feed:rate", args=[self.a.id]), {"value": "saved"})
@@ -223,6 +286,44 @@ class FeedViewTests(Base):
         dup = self.article("EZB hält die Zinsen", source=other, story=self.a)
         self.client.get(reverse("feed:open", args=[dup.id]))
         self.assertContains(self.client.post(url, {"value": "read"}, HTTP_HX_REQUEST="true"), "Mark as read")
+
+    def test_read_articles_are_hidden_on_reload(self):
+        other = self.article("Bund yields fall")
+        ArticleScore.objects.create(user=self.user, article=other, score=70, topic="Markets and central banks")
+        self.client.get(reverse("feed:open", args=[self.a.id]))
+        page = self.client.get(reverse("feed:home"))
+        self.assertNotContains(page, "ECB holds rates")
+        self.assertContains(page, "Bund yields fall")
+        self.assertContains(page, "1 read story hidden")
+        page = self.client.get(reverse("feed:home") + "?read=1")
+        self.assertContains(page, "ECB holds rates")
+        self.assertContains(page, "Hide read")
+
+    def test_topic_view(self):
+        chess = self.article("Chess final")
+        ArticleScore.objects.create(user=self.user, article=chess, score=60, new_topic="Chess")
+        page = self.client.get(reverse("feed:home"))
+        self.assertContains(page, 'href="/?topic=Markets%20and%20central%20banks"')
+        page = self.client.get(reverse("feed:home") + "?topic=Chess")
+        self.assertContains(page, "Chess final")
+        self.assertNotContains(page, "ECB holds rates")
+        self.assertContains(page, "+ Follow this topic")
+        response = self.client.post(reverse("topics:add"), {"name": "Chess", "next": "/?topic=Chess"})
+        self.assertRedirects(response, "/?topic=Chess", fetch_redirect_response=False)
+        self.assertNotContains(self.client.get(reverse("feed:home") + "?topic=Chess"), "You don't follow this topic")
+
+    def test_next_pages_load_on_scroll_and_stay_stable(self):
+        for i in range(30):
+            ArticleScore.objects.create(user=self.user, article=self.article(f"Story {i}", hours=1 + i / 10), score=50)
+        page = self.client.get(reverse("feed:home"))
+        self.assertContains(page, 'hx-trigger="intersect once"')
+        asof = page.context["asof"]
+        first = [s.article_id for s in page.context["scores"]]
+        self.client.get(reverse("feed:open", args=[first[0]]))  # read while scrolling: later pages don't shift
+        more = self.client.get(reverse("feed:home") + f"?page=2&asof={asof}", HTTP_HX_REQUEST="true")
+        second = [s.article_id for s in more.context["scores"]]
+        self.assertEqual(len(first) + len(second), 31)
+        self.assertFalse(set(first) & set(second))
 
     def test_thumbs(self):
         url = reverse("feed:rate", args=[self.a.id])

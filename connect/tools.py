@@ -89,6 +89,8 @@ def item_info(context, score):
     also = getattr(score, "also", [])
     if also:
         info["also_in"] = [a.source_name for a in also]
+    if score.story_key:
+        info["story"] = score.story_key
     return info
 
 

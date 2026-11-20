@@ -14,6 +14,8 @@
 
   <form method="get" class="filters" action="{% url 'feed:home' %}">
     {% if f.mode == 'latest' %}<input type="hidden" name="mode" value="latest">{% endif %}
+    {% if f.read %}<input type="hidden" name="read" value="1">{% endif %}
+    {% if f.story %}<input type="hidden" name="story" value="{{ f.story }}">{% endif %}
     <select name="topic" aria-label="Topic">
       <option value="">All topics</option>
       {% for t in topics %}<option value="{{ t.name }}" {% if f.topic|lower == t.name|lower %}selected{% endif %}>{{ t.name }}</option>{% endfor %}
@@ -24,6 +26,37 @@
     </select>
     <input type="search" name="q" value="{{ f.q }}" placeholder="Search headlines" aria-label="Search">
   </form>
+
+  {% if f.story %}
+    <div class="topic-head card">
+      <div class="spread">
+        <h2>{{ f.story }}</h2>
+        <a href="{% url 'feed:home' %}{% query story='' page='' %}" class="small">✕ Back to the feed</a>
+      </div>
+      <p class="muted small">Every article on this story, newest first.</p>
+    </div>
+  {% elif f.topic %}
+    <div class="topic-head card">
+      <div class="spread">
+        <h2>{{ f.topic }}</h2>
+        <a href="{% url 'feed:home' %}{% query topic='' page='' %}" class="small">✕ All topics</a>
+      </div>
+      {% if not topic_followed %}
+        <form method="post" action="{% url 'topics:add' %}" class="spread" style="margin-top:.5rem">
+          {% csrf_token %}<input type="hidden" name="name" value="{{ f.topic }}"><input type="hidden" name="next" value="{{ request.get_full_path }}">
+          <span class="muted small">You don't follow this topic yet.</span><button class="small">+ Follow this topic</button>
+        </form>
+      {% endif %}
+    </div>
+  {% endif %}
+
+  <div class="read-bar small muted">
+    {% if f.read %}
+      Showing read articles · <a href="{% url 'feed:home' %}{% query read='' page='' %}">Hide read</a>
+    {% elif read_hidden %}
+      {{ read_hidden }} read stor{{ read_hidden|pluralize:"y,ies" }} hidden · <a href="{% url 'feed:home' %}{% query read=1 page='' %}">Show</a>
+    {% endif %}
+  </div>
 
   {% if show_briefing %}
     <div id="briefing" hx-get="{% url 'feed:briefing' %}" hx-trigger="load" hx-swap="outerHTML">

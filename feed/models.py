@@ -18,6 +18,9 @@ class ArticleScore(models.Model):
     topic = models.CharField(max_length=80, blank=True, help_text="The followed topic it matched.")
     new_topic = models.CharField(max_length=80, blank=True, help_text="A topic not followed yet (discovery).")
     reason = models.CharField(max_length=300, blank=True)
+    # A short label for the news story it is about, shared by all articles on the same story ("FIFA presidential
+    # race"), so the feed shows one card per story. Empty: not labelled (then the article's own story).
+    story_key = models.CharField(max_length=120, blank=True, db_index=True)
     method = models.CharField(max_length=10, choices=Method.choices, default=Method.AI)
     hidden = models.BooleanField(default=False, help_text="Rated not interesting, or its topic was muted.")
     created_at = models.DateTimeField(default=timezone.now, db_index=True)
@@ -30,6 +33,11 @@ class ArticleScore(models.Model):
 
     def __str__(self):
         return f"{self.score} for {self.user}: {self.article}"
+
+    @property
+    def story_group(self):
+        """What groups it with other cards: its story label, else its article's story."""
+        return self.story_key.lower() if self.story_key else f"#{self.article.story_id or self.article_id}"
 
     @property
     def is_discovery(self):

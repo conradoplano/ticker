@@ -4,13 +4,13 @@
     <h3><a href="{% url 'feed:open' s.article_id %}" target="_blank" rel="noopener">{{ s.article.title }}</a></h3>
     <div class="meta">
       <span>{{ s.article.source_name }}</span><span>·</span><span>{{ s.article.published_at|ago }}</span>
-      {% if s.topic %}<span class="tag topic" title="{{ s.reason }}">{{ s.topic }}</span>{% elif s.new_topic %}<span class="tag new-topic" title="{{ s.reason }}">New topic: {{ s.new_topic }}</span>{% endif %}
+      {% if s.topic %}<a class="tag topic" href="{% url 'feed:home' %}?topic={{ s.topic|urlencode }}" title="{{ s.reason }}">{{ s.topic }}</a>{% elif s.new_topic %}<a class="tag new-topic" href="{% url 'feed:home' %}?topic={{ s.new_topic|urlencode }}" title="{{ s.reason }}">New topic: {{ s.new_topic }}</a>{% endif %}
       {% if s.is_read %}<span class="tag read-tag">Read</span>{% elif s.is_new %}<span class="tag fresh">New</span>{% endif %}
     </div>
   </div>
   {% if s.article.image_url %}<img class="thumb" src="{{ s.article.image_url }}" alt="" loading="lazy" referrerpolicy="no-referrer">{% endif %}
   {% if s.article.one_line %}<p class="why">{{ s.article.one_line }}</p>{% endif %}
-  {% if s.also %}<p class="also">Also in: {% for a in s.also %}<a href="{% url 'feed:open' a.id %}" target="_blank" rel="noopener">{{ a.source_name }}</a>{% if not forloop.last %}, {% endif %}{% endfor %}</p>{% endif %}
+  {% if s.also %}<p class="also">Also in: {% for a in s.also_shown %}<a href="{% url 'feed:open' a.id %}" target="_blank" rel="noopener">{{ a.source_name }}</a>{% if not forloop.last %}, {% endif %}{% endfor %}{% if s.also_more %} and {{ s.also_more }} more{% endif %}{% if s.story_size > 1 and s.story_key %} · <a class="story-link" href="{% url 'feed:home' %}?story={{ s.story_key|urlencode }}{% if f.read %}&amp;read=1{% endif %}">All {{ s.story_size }} on this story ›</a>{% endif %}</p>{% endif %}
   <div class="actions">
     <form method="post" action="{% url 'feed:rate' s.article_id %}" hx-post="{% url 'feed:rate' s.article_id %}" hx-target="#item-{{ s.article_id }}" hx-swap="outerHTML" class="inline">
       {% csrf_token %}
