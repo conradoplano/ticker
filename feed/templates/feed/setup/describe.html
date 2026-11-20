@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+{% block title %}Setup · {{ site_name }}{% endblock %}
+{% block content %}
+  <div class="card">
+    {% include "feed/setup/_progress.html" %}
+    <h2>What do you follow?</h2>
+    <p class="muted">Optional. In a sentence or two, what news do you care about?{% if ai_ok %} We suggest topics and sources from it.{% endif %}</p>
+    <form method="post" class="stack">
+      {% csrf_token %}
+      <textarea name="description" rows="4" placeholder="e.g. I work in financial markets in Frankfurt, follow European politics and Swiss football, and like long analysis more than breaking news.">{{ description }}</textarea>
+      <div class="wizard-nav">{% include "feed/setup/_skip.html" %}<button>Next</button></div>
+    </form>
+  </div>
+{% endblock %}

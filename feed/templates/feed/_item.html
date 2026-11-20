@@ -1,0 +1,33 @@
+{% load feed_tags %}
+<article class="card item{% if s.is_discovery %} discovery{% endif %}" id="item-{{ s.article_id }}">
+  <div>
+    <h3><a href="{% url 'feed:open' s.article_id %}" target="_blank" rel="noopener">{{ s.article.title }}</a></h3>
+    <div class="meta">
+      <span>{{ s.article.source.name }}</span><span>·</span><span>{{ s.article.published_at|ago }}</span>
+      {% if s.topic %}<span class="tag topic">{{ s.topic }}</span>{% elif s.new_topic %}<span class="tag new-topic">New topic: {{ s.new_topic }}</span>{% endif %}
+      {% if s.is_new %}<span class="tag fresh">New</span>{% endif %}
+    </div>
+  </div>
+  {% if s.article.image_url %}<img class="thumb" src="{{ s.article.image_url }}" alt="" loading="lazy" referrerpolicy="no-referrer">{% endif %}
+  {% if s.reason %}<p class="why">{{ s.reason }}</p>{% endif %}
+  {% if s.also %}<p class="also">Also in: {% for a in s.also %}<a href="{% url 'feed:open' a.id %}" target="_blank" rel="noopener">{{ a.source.name }}</a>{% if not forloop.last %}, {% endif %}{% endfor %}</p>{% endif %}
+  <div class="actions">
+    <form method="post" action="{% url 'feed:rate' s.article_id %}" hx-post="{% url 'feed:rate' s.article_id %}" hx-target="#item-{{ s.article_id }}" hx-swap="outerHTML" class="inline">
+      {% csrf_token %}
+      <button name="value" value="up" class="{% if 'up' in s.ratings %}on{% endif %}" aria-pressed="{% if 'up' in s.ratings %}true{% else %}false{% endif %}">👍 Interesting</button>
+      <button name="value" value="down" aria-pressed="false">👎 Not interesting</button>
+      <button name="value" value="saved" class="{% if 'saved' in s.ratings %}on{% endif %}" aria-pressed="{% if 'saved' in s.ratings %}true{% else %}false{% endif %}">🔖 {% if 'saved' in s.ratings %}Saved{% else %}Save for later{% endif %}</button>
+    </form>
+    {% if s.is_discovery %}
+      <form method="post" action="{% url 'feed:follow_topic' s.article_id %}" hx-post="{% url 'feed:follow_topic' s.article_id %}" hx-target="#item-{{ s.article_id }}" hx-swap="outerHTML" class="inline">
+        {% csrf_token %}<button class="follow">+ Follow this topic</button>
+      </form>
+    {% endif %}
+    {% if s.topic or s.new_topic %}
+      <form method="post" action="{% url 'feed:mute_topic' s.article_id %}" hx-post="{% url 'feed:mute_topic' s.article_id %}" hx-target="#item-{{ s.article_id }}" hx-swap="outerHTML" class="inline"
+            data-confirm="Stop showing {{ s.topic|default:s.new_topic }}?">
+        {% csrf_token %}<button>Not this topic</button>
+      </form>
+    {% endif %}
+  </div>
+</article>

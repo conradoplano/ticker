@@ -1,0 +1,10 @@
+{% if items %}
+<details class="card briefing" id="briefing" {% if open %}open{% endif %}>
+  <summary>☀️ Your briefing</summary>
+  <ol>
+    {% for b in items %}
+      <li><a href="{% url 'feed:open' b.id %}" target="_blank" rel="noopener">{{ b.title }}</a> <span class="src">{{ b.source }}</span><br>{{ b.sentence }}</li>
+    {% endfor %}
+  </ol>
+</details>
+{% else %}<div id="briefing"></div>{% endif %}

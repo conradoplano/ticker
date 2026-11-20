@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% block title %}Setup · {{ site_name }}{% endblock %}
+{% block content %}
+  <div class="card">
+    {% include "feed/setup/_progress.html" %}
+    <h2>Preferences</h2>
+    <form method="post" class="stack">
+      {% csrf_token %}
+      <div class="field">
+        <label for="tz">Time zone</label>
+        <input id="tz" name="time_zone" value="{{ prefs.time_zone }}" data-browser-tz{% if keep_tz %} data-keep="1"{% endif %}>
+      </div>
+      <div class="field">
+        <label>How often should your feed update?</label>
+        <div class="pick" data-frequency="#custom-times">
+          {% for key, times in frequencies.items %}<label><input type="radio" name="frequency" value="{{ key }}" {% if prefs.frequency == key %}checked{% endif %}>{{ key }}× a day</label>{% endfor %}
+          <label><input type="radio" name="frequency" value="custom" {% if prefs.frequency == 'custom' %}checked{% endif %}>Fixed times</label>
+        </div>
+        <div id="custom-times" style="margin-top:.5rem">
+          <input name="times" value="{{ prefs.times }}" placeholder="07:00, 12:00, 17:30" aria-label="Times">
+          {% if errors.times %}<div class="errorlist">{{ errors.times }}</div>{% endif %}
+        </div>
+      </div>
+      <div class="field">
+        <label>New-topic discovery</label>
+        <div class="pick">
+          {% for value, label in discovery_choices %}<label><input type="radio" name="discovery" value="{{ value }}" {% if prefs.discovery|stringformat:'s' == value|stringformat:'s' %}checked{% endif %}>{{ label }}</label>{% endfor %}
+        </div>
+        <div class="muted small">How often the feed shows stories from topics you don't follow yet.</div>
+      </div>
+      <div class="field">
+        <label for="avoid">Anything you do not want? (optional)</label>
+        <input id="avoid" name="avoid" value="{{ prefs.avoid }}" placeholder="no celebrity news, little local crime">
+      </div>
+      <div class="wizard-nav"><a href="{% url 'feed:setup_sources' %}">Back</a>{% include "feed/setup/_skip.html" %}<button>Next</button></div>
+    </form>
+  </div>
+{% endblock %}

@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+
+{% block title %}Connect {{ app_name }} · {{ site_name }}{% endblock %}
+
+{% block content %}
+  <div class="card narrow">
+    <h2>Connect {{ app_name }}?</h2>
+    <p><strong>{{ app_name }}</strong> wants to use {{ site_name }} as <strong>{{ user.get_full_name }}</strong>. It will be able to:</p>
+    <ul class="small">
+      <li>see your feed, your briefing, your topics and your sources</li>
+      <li>add topics and sources, and rate items with thumbs up or down</li>
+    </ul>
+    <p class="muted small">You can disconnect it at any time in Settings. It returns to <strong>{{ redirect_host }}</strong>.</p>
+    <form method="post" class="stack">
+      {% csrf_token %}
+      <button class="wide" type="submit" name="allow" value="1">Allow</button>
+      <button class="wide ghost" type="submit" name="deny" value="1">Cancel</button>
+    </form>
+  </div>
+{% endblock %}

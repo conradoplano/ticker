@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% block title %}Setup · {{ site_name }}{% endblock %}
+{% block content %}
+  <div class="card">
+    {% include "feed/setup/_progress.html" %}
+    <h2>Pick your topics</h2>
+    {% if error %}<div class="flash error">{{ error }}</div>{% endif %}
+    <form method="post">
+      {% csrf_token %}
+      {% if extra %}
+        <div class="area"><h4>Suggested for you</h4><div class="pick">
+          {% for name in extra %}<label><input type="checkbox" name="topic" value="{{ name }}" {% if name in chosen %}checked{% endif %}>{{ name }}</label>{% endfor %}
+        </div></div>
+      {% endif %}
+      {% for area, names in areas %}
+        <div class="area"><h4>{{ area }}</h4><div class="pick">
+          {% for name in names %}<label><input type="checkbox" name="topic" value="{{ name }}" {% if name in chosen %}checked{% endif %}>{{ name }}</label>{% endfor %}
+        </div></div>
+      {% endfor %}
+      <div class="field" style="margin-top:1rem">
+        <label for="own">Your own</label>
+        <input id="own" name="own" placeholder="e.g. clearing and derivatives, FC Basel">
+        <div class="muted small">Separate several with commas.</div>
+      </div>
+      <div class="wizard-nav"><a href="{% url 'feed:setup' %}">Back</a>{% include "feed/setup/_skip.html" %}<button>Next</button></div>
+    </form>
+  </div>
+{% endblock %}

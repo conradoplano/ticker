@@ -1,0 +1,107 @@
+{% extends "base.html" %}
+{% block title %}Settings · {{ site_name }}{% endblock %}
+{% block content %}
+  <h2>Settings</h2>
+
+  <section class="card" id="today">
+    <h3>Today</h3>
+    <div class="stats">
+      <div class="stat"><b>{{ stats.fetched }}</b><span>items fetched</span></div>
+      <div class="stat"><b>{{ stats.shown }}</b><span>shown of {{ stats.scored }} ranked</span></div>
+      <div class="stat"><b>${{ stats.ai_cost|floatformat:3 }}</b><span>AI cost (limit ${{ stats.ai_limit|floatformat:2 }})</span></div>
+    </div>
+    {% if stats.ai_blocked %}<p class="muted small">{{ stats.ai_blocked }} Until then the feed is ranked by topic keywords.</p>{% endif %}
+  </section>
+
+  <section class="card" id="sources">
+    <h3>Sources</h3>
+    {% for us in follows %}
+      <div class="list-row{% if not us.active %} off{% endif %}">
+        <div class="name">{{ us.display_name }}
+          {% if us.source.error_count >= 3 %}<div class="small" style="color:var(--neg)">Not reachable lately: {{ us.source.last_error }}</div>{% endif %}
+        </div>
+        <form method="post" action="{% url 'sources:toggle' us.pk %}" class="inline">{% csrf_token %}<button class="ghost small">{% if us.active %}Switch off{% else %}Switch on{% endif %}</button></form>
+        <form method="post" action="{% url 'sources:remove' us.pk %}" class="inline" data-confirm="Remove {{ us.display_name }}?">{% csrf_token %}<button class="link danger small">Remove</button></form>
+      </div>
+    {% empty %}
+      <p class="muted">No sources yet.</p>
+    {% endfor %}
+    <form method="post" action="{% url 'sources:add' %}" class="stack" style="margin-top:.75rem">
+      {% csrf_token %}
+      <div class="field">
+        <label for="names">Add by name or address</label>
+        <input id="names" name="names" placeholder="FAZ, Reuters, nzz.ch, https://example.com/feed.xml">
+        <div class="muted small">Separate several with commas. The app finds each feed and you confirm it.</div>
+      </div>
+      <button type="submit">Find feeds</button>
+    </form>
+  </section>
+
+  <section class="card" id="topics">
+    <h3>Topics</h3>
+    <div class="chips">
+      {% for t in topics %}
+        <span class="chip{% if not t.active %} muted{% endif %}">
+          <form method="post" action="{% url 'topics:toggle' t.pk %}" class="inline">{% csrf_token %}<button title="{% if t.active %}Switch off{% else %}Switch on{% endif %}" aria-label="{% if t.active %}Switch off{% else %}Switch on{% endif %} {{ t.name }}">{% if t.active %}●{% else %}○{% endif %}</button></form>
+          {{ t.name }}
+          <form method="post" action="{% url 'topics:remove' t.pk %}" class="inline">{% csrf_token %}<button aria-label="Remove {{ t.name }}">✕</button></form>
+        </span>
+      {% empty %}<p class="muted">No topics yet.</p>{% endfor %}
+    </div>
+    <form method="post" action="{% url 'topics:add' %}" class="row" style="margin-top:.75rem">
+      {% csrf_token %}<input name="name" placeholder="e.g. clearing and derivatives" aria-label="New topic"><button>Add</button>
+    </form>
+
+    <h3 style="margin-top:1.25rem">Muted subjects</h3>
+    <div class="chips">
+      {% for m in mutes %}
+        <span class="chip">{{ m.subject }}<form method="post" action="{% url 'topics:unmute' m.pk %}" class="inline">{% csrf_token %}<button aria-label="Unmute {{ m.subject }}">✕</button></form></span>
+      {% empty %}<p class="muted small">Nothing muted.</p>{% endfor %}
+    </div>
+    <form method="post" action="{% url 'topics:mute' %}" class="row" style="margin-top:.75rem">
+      {% csrf_token %}<input name="subject" placeholder="e.g. celebrity news" aria-label="Subject to mute"><button class="ghost">Mute</button>
+    </form>
+  </section>
+
+  <section class="card" id="schedule">
+    <h3>Refresh and discovery</h3>
+    <form method="post" class="stack">
+      {% csrf_token %}<input type="hidden" name="form" value="prefs">
+      {% with form=prefs %}{% include "_fields.html" %}{% endwith %}
+      <button>Save</button>
+    </form>
+  </section>
+
+  <section class="card" id="profile">
+    <h3>Your profile</h3>
+    <form method="post" class="stack">
+      {% csrf_token %}<input type="hidden" name="form" value="profile">
+      {% with form=profile %}{% include "_fields.html" %}{% endwith %}
+      <button>Save</button>
+    </form>
+    <div class="row" style="margin-top:.75rem">
+      <form method="post" action="{% url 'feed:learn' %}" class="inline">{% csrf_token %}<button class="ghost small">Update from my ratings now</button></form>
+      <form method="post" action="{% url 'feed:learn' %}" class="inline" data-confirm="Clear what the app has learned?">{% csrf_token %}<input type="hidden" name="reset" value="1"><button class="link danger small">Reset</button></form>
+    </div>
+    {% if user.learned_at %}<p class="muted small">Last updated {{ user.learned_at|date:"j M Y" }}.</p>{% endif %}
+  </section>
+
+  <section class="card" id="assistants">
+    <h3>Assistants</h3>
+    <p class="muted small">Connect Claude or another assistant to read your feed and briefing, add topics and sources and rate items. Add a custom connector with this address:</p>
+    <input type="text" readonly value="{{ mcp_url }}" aria-label="Connector address" onclick="this.select()">
+    {% for c in connections %}
+      <div class="list-row"><div class="name">{{ c.client }} <span class="muted small">since {{ c.created_at|date:"j M Y" }}</span></div>
+        <form method="post" action="{% url 'connect:connection_remove' c.pk %}" class="inline" data-confirm="Disconnect {{ c.client }}?">{% csrf_token %}<button class="link danger small">Disconnect</button></form></div>
+    {% endfor %}
+  </section>
+
+  <section class="card">
+    <h3>Your account</h3>
+    <div class="stack">
+      <form method="post" action="{% url 'feed:setup_restart' %}">{% csrf_token %}<button class="ghost wide">Run the setup again</button></form>
+      <a class="btn ghost wide" href="{% url 'feed:export' %}">Export my data</a>
+      <a class="btn danger wide" href="{% url 'feed:delete' %}">Delete my account</a>
+    </div>
+  </section>
+{% endblock %}

@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% load feed_tags %}
+{% block content %}
+  <div class="feed-head">
+    <div class="segmented" role="tablist">
+      <a href="{% url 'feed:home' %}{% query mode='' page='' %}" class="{% if f.mode == 'best' %}on{% endif %}">Best for me</a>
+      <a href="{% url 'feed:home' %}{% query mode='latest' page='' %}" class="{% if f.mode == 'latest' %}on{% endif %}">Latest</a>
+    </div>
+    <form method="post" action="{% url 'feed:refresh' %}" hx-post="{% url 'feed:refresh' %}" hx-indicator="this" hx-disabled-elt="find button">
+      {% csrf_token %}
+      <button type="submit" class="ghost small">↻ Refresh now<span class="htmx-indicator"> …</span></button>
+    </form>
+  </div>
+
+  <form method="get" class="filters" action="{% url 'feed:home' %}">
+    {% if f.mode == 'latest' %}<input type="hidden" name="mode" value="latest">{% endif %}
+    <select name="topic" aria-label="Topic">
+      <option value="">All topics</option>
+      {% for t in topics %}<option value="{{ t.name }}" {% if f.topic|lower == t.name|lower %}selected{% endif %}>{{ t.name }}</option>{% endfor %}
+    </select>
+    <select name="source" aria-label="Source">
+      <option value="">All sources</option>
+      {% for us in follows %}<option value="{{ us.source_id }}" {% if f.source == us.source_id %}selected{% endif %}>{{ us.display_name }}</option>{% endfor %}
+    </select>
+    <input type="search" name="q" value="{{ f.q }}" placeholder="Search headlines" aria-label="Search">
+  </form>
+
+  {% if show_briefing %}
+    <div id="briefing" hx-get="{% url 'feed:briefing' %}" hx-trigger="load" hx-swap="outerHTML">
+      {% if not briefing_ready %}<div class="card briefing muted small">Writing your morning briefing…</div>{% endif %}
+    </div>
+  {% endif %}
+
+  <div id="feed">{% include "feed/_list.html" %}</div>
+{% endblock %}

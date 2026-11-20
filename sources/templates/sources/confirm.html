@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% block title %}Confirm sources · {{ site_name }}{% endblock %}
+{% block content %}
+  <div class="card">
+    <h2>Confirm sources</h2>
+    <form method="post" action="{% url 'sources:add' %}">
+      {% csrf_token %}<input type="hidden" name="action" value="confirm">
+      {% for f in found %}
+        <div class="found">
+          {% if f.feed_url %}<input type="checkbox" name="feed" value="{{ f.feed_url }}" id="f{{ forloop.counter }}" {% if not f.error %}checked{% endif %}>{% else %}<span aria-hidden="true">⚠️</span>{% endif %}
+          <div style="flex:1;min-width:0">
+            {% if f.feed_url %}
+              <input name="name-{{ f.feed_url }}" value="{{ f.name }}" aria-label="Name for {{ f.query }}">
+              <div class="muted small" style="overflow-wrap:anywhere">{{ f.feed_url }}</div>
+            {% else %}
+              <b>{{ f.query }}</b>
+            {% endif %}
+            {% if f.error %}<div class="bad">{{ f.error }}</div>{% endif %}
+          </div>
+        </div>
+      {% endfor %}
+      <div class="wizard-nav">
+        <a href="{% url 'feed:settings' %}#sources">Cancel</a>
+        <button>Add the ticked sources</button>
+      </div>
+    </form>
+  </div>
+{% endblock %}

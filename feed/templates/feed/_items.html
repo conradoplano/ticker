@@ -1,0 +1,8 @@
+{% load feed_tags %}
+{% for s in scores %}{% include "feed/_item.html" %}{% endfor %}
+{% if more %}
+  <div class="more" id="more-{{ next_page }}">
+    <a class="btn ghost" href="{% url 'feed:home' %}{% query page=next_page %}"
+       hx-get="{% url 'feed:home' %}{% query page=next_page %}" hx-target="#more-{{ next_page }}" hx-swap="outerHTML">Show more</a>
+  </div>
+{% endif %}

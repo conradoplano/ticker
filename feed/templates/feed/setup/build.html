@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% block title %}Setup · {{ site_name }}{% endblock %}
+{% block content %}
+  <div class="card">
+    {% include "feed/setup/_progress.html" %}
+    <h2>Building your feed</h2>
+    <p class="muted">{{ topics|length }} topic{{ topics|length|pluralize }}, {{ sources|length }} source{{ sources|length|pluralize }}, updates {{ prefs.refresh_times|length|default:4 }}× a day.</p>
+    <div hx-post="{% url 'feed:setup_build_run' %}" hx-trigger="load" hx-swap="none">
+      <div class="spinner" aria-hidden="true"></div>
+      <p class="center muted">Writing your interest profile, fetching the first news and ranking it. This takes a moment.</p>
+    </div>
+    <noscript>
+      <form method="post" action="{% url 'feed:setup_build_run' %}">{% csrf_token %}<button class="wide">Build my feed</button></form>
+    </noscript>
+    <div class="wizard-nav"><a href="{% url 'feed:setup_preferences' %}">Back</a></div>
+  </div>
+{% endblock %}

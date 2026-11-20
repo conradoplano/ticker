@@ -1,0 +1,16 @@
+{% if scores %}
+  {% include "feed/_items.html" %}
+{% elif not has_sources %}
+  <div class="card empty">
+    <p><b>No sources yet.</b></p>
+    <p class="muted">Add the publications you read and your feed fills up with the next refresh.</p>
+    <a class="btn" href="{% url 'feed:settings' %}#sources">Add sources</a>
+  </div>
+{% elif f.topic or f.source or f.q %}
+  <div class="card empty"><p class="muted">Nothing matches these filters.</p><a href="{% url 'feed:home' %}">Show everything</a></div>
+{% else %}
+  <div class="card empty">
+    <p><b>Nothing here yet.</b></p>
+    <p class="muted">New items arrive at your refresh times. Tap Refresh now to fetch them straight away.</p>
+  </div>
+{% endif %}

@@ -1,0 +1,12 @@
+services:
+  ticker:
+    build: .
+    image: ticker:latest
+    container_name: ticker
+    restart: unless-stopped
+    ports:
+      # Only reachable from the NAS itself; DSM's reverse proxy serves it over HTTPS.
+      - "127.0.0.1:5063:8000"
+    env_file: .env
+    volumes:
+      - ./data:/data

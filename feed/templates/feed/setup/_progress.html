@@ -1,0 +1,2 @@
+<div class="progress" aria-label="Step {{ step }} of {{ steps|length }}">{% for s in steps %}<span class="{% if forloop.counter <= step %}done{% endif %}" title="{{ s }}"></span>{% endfor %}</div>
+<p class="muted small">Step {{ step }} of {{ steps|length }}</p>
