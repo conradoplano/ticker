@@ -12,23 +12,32 @@
   {% if s.article.one_line %}<p class="why">{{ s.article.one_line }}</p>{% endif %}
   {% if s.also %}<p class="also">Also in: {% for a in s.also_shown %}<a href="{% url 'feed:open' a.id %}" target="_blank" rel="noopener">{{ a.source_name }}</a>{% if not forloop.last %}, {% endif %}{% endfor %}{% if s.also_more %} and {{ s.also_more }} more{% endif %}{% if s.story_size > 1 and s.story_key %} · <a class="story-link" href="{% url 'feed:home' %}?story={{ s.story_key|urlencode }}{% if f.read %}&amp;read=1{% endif %}">All {{ s.story_size }} on this story ›</a>{% endif %}</p>{% endif %}
   <div class="actions">
-    <form method="post" action="{% url 'feed:rate' s.article_id %}" hx-post="{% url 'feed:rate' s.article_id %}" hx-target="#item-{{ s.article_id }}" hx-swap="outerHTML" class="inline">
-      {% csrf_token %}
-      <button name="value" value="up" class="{% if 'up' in s.ratings %}on{% endif %}" aria-pressed="{% if 'up' in s.ratings %}true{% else %}false{% endif %}">👍 Interesting</button>
-      <button name="value" value="down" aria-pressed="false">👎 Not interesting</button>
-      <button name="value" value="saved" class="{% if 'saved' in s.ratings %}on{% endif %}" aria-pressed="{% if 'saved' in s.ratings %}true{% else %}false{% endif %}">🔖 {% if 'saved' in s.ratings %}Saved{% else %}Save for later{% endif %}</button>
-      <button name="value" value="read" class="mark-read">{% if s.is_read %}↺ Mark as unread{% else %}✓ Mark as read{% endif %}</button>
-    </form>
     {% if s.is_discovery %}
       <form method="post" action="{% url 'feed:follow_topic' s.article_id %}" hx-post="{% url 'feed:follow_topic' s.article_id %}" hx-target="#item-{{ s.article_id }}" hx-swap="outerHTML" class="inline">
-        {% csrf_token %}<button class="follow">+ Follow this topic</button>
+        {% csrf_token %}<button class="follow">{% include "feed/_icon.html" with name="plus" %}Follow {{ s.new_topic }}</button>
       </form>
     {% endif %}
+    <form method="post" action="{% url 'feed:rate' s.article_id %}" hx-post="{% url 'feed:rate' s.article_id %}" hx-target="#item-{{ s.article_id }}" hx-swap="outerHTML" class="icon-row">
+      {% csrf_token %}
+      <button name="value" value="up" class="icon-btn{% if 'up' in s.ratings %} on{% endif %}" title="Interesting" aria-label="Interesting" aria-pressed="{% if 'up' in s.ratings %}true{% else %}false{% endif %}">{% include "feed/_icon.html" with name="up" %}</button>
+      <button name="value" value="down" class="icon-btn" title="Not interesting" aria-label="Not interesting">{% include "feed/_icon.html" with name="down" %}</button>
+      <button name="value" value="saved" class="icon-btn{% if 'saved' in s.ratings %} on{% endif %}" title="{% if 'saved' in s.ratings %}Saved{% else %}Save for later{% endif %}" aria-label="Save for later" aria-pressed="{% if 'saved' in s.ratings %}true{% else %}false{% endif %}">{% include "feed/_icon.html" with name="save" %}</button>
+      {% if s.is_read %}
+        <button name="value" value="read" class="icon-btn" title="Mark as unread" aria-label="Mark as unread">{% include "feed/_icon.html" with name="unread" %}</button>
+      {% else %}
+        <button name="value" value="read" class="icon-btn" title="Mark as read" aria-label="Mark as read">{% include "feed/_icon.html" with name="read" %}</button>
+      {% endif %}
+    </form>
     {% if s.topic or s.new_topic %}
-      <form method="post" action="{% url 'feed:mute_topic' s.article_id %}" hx-post="{% url 'feed:mute_topic' s.article_id %}" hx-target="#item-{{ s.article_id }}" hx-swap="outerHTML" class="inline"
-            data-confirm="Stop showing {{ s.topic|default:s.new_topic }}?">
-        {% csrf_token %}<button>Not this topic</button>
-      </form>
+      <details class="menu">
+        <summary class="icon-btn" title="More" aria-label="More">{% include "feed/_icon.html" with name="more" %}</summary>
+        <div class="menu-list">
+          <form method="post" action="{% url 'feed:mute_topic' s.article_id %}" hx-post="{% url 'feed:mute_topic' s.article_id %}" hx-target="#item-{{ s.article_id }}" hx-swap="outerHTML"
+                data-confirm="Mute {{ s.topic|default:s.new_topic }}? Its articles won't be shown any more. You can undo it in Settings.">
+            {% csrf_token %}<button>{% include "feed/_icon.html" with name="mute" %}Mute topic “{{ s.topic|default:s.new_topic }}”</button>
+          </form>
+        </div>
+      </details>
     {% endif %}
   </div>
 </article>

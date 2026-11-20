@@ -57,6 +57,11 @@
   document.addEventListener('click', markRead);
   document.addEventListener('auxclick', markRead);
 
+  // Small menus (<details class="menu">) close when tapping elsewhere or pressing Escape.
+  const closeMenus = (except) => document.querySelectorAll('details.menu[open]').forEach((m) => { if (m !== except) m.open = false; });
+  document.addEventListener('click', (event) => closeMenus(event.target.closest('details.menu')));
+  document.addEventListener('keydown', (event) => { if (event.key === 'Escape') closeMenus(); });
+
   // Filters on the feed: changing a select submits the form.
   document.querySelectorAll('form.filters select').forEach((select) => {
     select.addEventListener('change', () => select.form.requestSubmit());

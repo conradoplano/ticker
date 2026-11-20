@@ -196,7 +196,7 @@ def follow_topic(request, pk):
 @setup_required
 @require_POST
 def mute_topic(request, pk):
-    """Not this topic: mutes the item's topic (or, without one, the subject the person types)."""
+    """Mute topic: mutes the item's topic (or, without one, the subject the person types)."""
     user = request.user
     score = get_object_or_404(ArticleScore, user=user, article_id=pk)
     subject = " ".join((request.POST.get("subject") or score.topic or score.new_topic or "").split())[:80]

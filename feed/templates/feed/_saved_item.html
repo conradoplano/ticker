@@ -7,10 +7,14 @@
   {% if article.image_url %}<img class="thumb" src="{{ article.image_url }}" alt="" loading="lazy" referrerpolicy="no-referrer">{% endif %}
   {% if article.one_line %}<p class="why">{{ article.one_line }}</p>{% endif %}
   <div class="actions">
-    <form method="post" action="{% url 'feed:rate' article.id %}" hx-post="{% url 'feed:rate' article.id %}" hx-target="#saved-{{ article.id }}" hx-swap="outerHTML" class="inline">
+    <form method="post" action="{% url 'feed:rate' article.id %}" hx-post="{% url 'feed:rate' article.id %}" hx-target="#saved-{{ article.id }}" hx-swap="outerHTML" class="icon-row">
       {% csrf_token %}<input type="hidden" name="where" value="saved"><input type="hidden" name="next" value="{% url 'feed:saved' %}">
-      <button name="value" value="read">{% if article.id in opened %}↺ Mark as unread{% else %}✓ Mark as read{% endif %}</button>
-      <button name="value" value="saved">Remove</button>
+      {% if article.id in opened %}
+        <button name="value" value="read" class="icon-btn" title="Mark as unread" aria-label="Mark as unread">{% include "feed/_icon.html" with name="unread" %}</button>
+      {% else %}
+        <button name="value" value="read" class="icon-btn" title="Mark as read" aria-label="Mark as read">{% include "feed/_icon.html" with name="read" %}</button>
+      {% endif %}
+      <button name="value" value="saved" class="icon-btn" title="Remove from saved" aria-label="Remove from saved">{% include "feed/_icon.html" with name="remove" %}</button>
     </form>
   </div>
 </article>
