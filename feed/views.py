@@ -219,6 +219,7 @@ def stats(user):
         "scored": scored.count(),
         "shown": scored.filter(hidden=False, score__gte=build.MIN_SCORE).count(),
         "ai_cost": ai.spent(ai.today_start(), user=user),
+        "ai_month": ai.spent(ai.today_start().replace(day=1), user=user),
         "ai_limit": ai.daily_limit(user),
         "ai_blocked": ai.blocked(user),
     }

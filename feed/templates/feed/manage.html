@@ -1,0 +1,93 @@
+{% extends "base.html" %}
+{% block title %}Admin · {{ site_name }}{% endblock %}
+{% block content %}
+  <p class="small"><a href="{% url 'feed:settings' %}">‹ Settings</a></p>
+  <h2>Admin</h2>
+
+  <section class="card">
+    <h3>✨ AI costs</h3>
+    {% if not ai_configured %}<div class="flash error small">AI isn't set up: OPENAI_API_KEY is missing, so every feed is ranked by topic keywords.</div>{% endif %}
+    {% for row in unpriced %}
+      <div class="flash error small">{{ row.calls }} call{{ row.calls|pluralize }} with the model “{{ row.model|default:"unknown" }}” {{ row.calls|pluralize:"has,have" }} no price, so {{ row.calls|pluralize:"it counts,they count" }} as $0. Add the model to <code>PRICES</code> in <code>core/ai.py</code>.</div>
+    {% endfor %}
+    <table class="kv small">
+      <tr><td class="muted">Today</td><td>${{ today|floatformat:2 }} of ${{ global_limit|floatformat:2 }} for everyone</td></tr>
+      <tr><td class="muted">This month</td><td>${{ month|floatformat:2 }}</td></tr>
+      <tr><td class="muted">All time</td><td>${{ total|floatformat:2 }}</td></tr>
+    </table>
+    {% if by_kind %}
+      <h4>By use</h4>
+      <table class="kv small cols">
+        <tr class="muted"><td>Use</td><td>Calls</td><td>This month</td><td>All time</td></tr>
+        {% for row in by_kind %}<tr><td>{{ row.label }}</td><td>{{ row.calls }}</td><td>${{ row.month|default:0|floatformat:2 }}</td><td>${{ row.total|floatformat:2 }}</td></tr>{% endfor %}
+      </table>
+    {% endif %}
+    {% if by_model %}
+      <h4>By model</h4>
+      <table class="kv small cols">
+        <tr class="muted"><td>Model</td><td>Calls</td><td>This month</td><td>All time</td></tr>
+        {% for row in by_model %}<tr><td>{{ row.model|default:"–" }}</td><td>{{ row.calls }}</td><td>${{ row.month|default:0|floatformat:2 }}</td><td>${{ row.total|floatformat:2 }}</td></tr>{% endfor %}
+      </table>
+    {% endif %}
+    <p class="muted small">Each person may spend ${{ default_limit|floatformat:2 }} a day, unless they have their own limit below. When the day's total for everyone reaches ${{ global_limit|floatformat:2 }}, AI pauses until tomorrow and feeds are ranked by topic keywords.</p>
+  </section>
+
+  <section class="card" id="pending">
+    <h3>Waiting for AI ({{ pending|length }})</h3>
+    {% for p in pending %}
+      <div class="person-row">
+        <div class="spread"><strong>{{ p.name|default:p.email }}</strong><span class="muted small">since {{ p.date_joined|date:"j M Y" }}</span></div>
+        <div class="small muted">{{ p.email }}</div>
+        <form method="post" action="{% url 'feed:manage_person' p.pk %}" class="inline">
+          {% csrf_token %}<button type="submit" name="action" value="approve" class="small">Approve AI</button>
+        </form>
+      </div>
+    {% empty %}
+      <p class="muted">Nobody is waiting.</p>
+    {% endfor %}
+  </section>
+
+  <section class="card" id="people">
+    <h3>People ({{ people|length }})</h3>
+    {% for p in people %}
+      <div class="person-row{% if not p.is_active %} off{% endif %}" id="person-{{ p.pk }}">
+        <div class="spread">
+          <strong>{{ p.name|default:p.email }}</strong>
+          <span>
+            {% if not p.is_active %}<span class="badge danger">Suspended</span>
+            {% elif p.is_staff %}<span class="badge">Admin · AI on</span>
+            {% elif p.ai_approved %}<span class="badge">AI on</span>
+            {% else %}<span class="badge">Waiting for AI</span>{% endif %}
+          </span>
+        </div>
+        <div class="small muted">{{ p.email }} · since {{ p.date_joined|date:"j M Y" }}{% if p.last_visit_at %} · last visit {{ p.last_visit_at|timesince }} ago{% endif %}{% if not p.setup_completed %} · setup not finished{% endif %}</div>
+        <div class="small{% if p.over_limit %} warn{% endif %}">
+          Today ${{ p.cost_today|default:0|floatformat:3 }} of ${{ p.limit|floatformat:2 }} · this month ${{ p.cost_month|default:0|floatformat:2 }} · all time ${{ p.cost_total|default:0|floatformat:2 }}
+        </div>
+        <div class="person-actions">
+          <form method="post" action="{% url 'feed:manage_person' p.pk %}" class="limit-form">
+            {% csrf_token %}<input type="hidden" name="action" value="limit">
+            <label class="small muted" for="limit-{{ p.pk }}">$ / day</label>
+            <input id="limit-{{ p.pk }}" type="number" name="limit" step="0.01" min="0" inputmode="decimal"
+                   value="{% if p.ai_daily_limit is not None %}{{ p.ai_daily_limit }}{% endif %}" placeholder="{{ default_limit|floatformat:2 }}">
+            <button type="submit" class="ghost small">Save</button>
+          </form>
+          {% if p.pk != user.pk %}
+            <form method="post" action="{% url 'feed:manage_person' p.pk %}" class="inline">
+              {% csrf_token %}
+              {% if p.ai_approved %}<button type="submit" name="action" value="revoke" class="ghost small">Switch AI off</button>
+              {% elif not p.is_staff %}<button type="submit" name="action" value="approve" class="ghost small">Approve AI</button>{% endif %}
+            </form>
+            <form method="post" action="{% url 'feed:manage_person' p.pk %}" class="inline"
+                  {% if p.is_active %}data-confirm="Suspend {{ p.name|default:p.email }}? They can't log in until reactivated."{% endif %}>
+              {% csrf_token %}
+              {% if p.is_active %}<button type="submit" name="action" value="suspend" class="link small danger">Suspend</button>
+              {% else %}<button type="submit" name="action" value="reactivate" class="ghost small">Reactivate</button>{% endif %}
+            </form>
+          {% endif %}
+        </div>
+      </div>
+    {% endfor %}
+  </section>
+  <p class="muted small center">Every AI call is listed in the <a href="{% url 'admin:core_aiusage_changelist' %}">database admin</a>.</p>
+{% endblock %}

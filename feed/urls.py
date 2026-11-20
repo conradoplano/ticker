@@ -1,6 +1,6 @@
 from django.urls import path
 
-from . import setup, views
+from . import manage, setup, views
 
 app_name = "feed"
 
@@ -17,6 +17,8 @@ urlpatterns = [
     path("settings/learn/", views.learn_now, name="learn"),
     path("settings/export/", views.export, name="export"),
     path("settings/delete/", views.delete_account, name="delete"),
+    path("manage/", manage.manage, name="manage"),
+    path("manage/person/<int:pk>/", manage.manage_person, name="manage_person"),
     path("setup/", setup.describe, name="setup"),
     path("setup/topics/", setup.topics, name="setup_topics"),
     path("setup/sources/", setup.sources, name="setup_sources"),

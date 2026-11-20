@@ -142,6 +142,23 @@ form.inline { display: inline; }
 .stat b { display: block; font-size: 1.35rem; font-variant-numeric: tabular-nums; }
 .stat span { font-size: .8rem; color: var(--muted); }
 
+/* Admin */
+table.kv { width: 100%; border-collapse: collapse; }
+table.kv td { padding: .35rem 0; border-bottom: 1px solid var(--border); vertical-align: top; }
+table.kv td:last-child { text-align: right; white-space: nowrap; padding-left: 1rem; }
+table.kv.cols td + td { text-align: right; padding-left: .75rem; white-space: nowrap; }
+h4 { margin: 1rem 0 .4rem; font-size: .9rem; }
+.badge { display: inline-block; padding: .1rem .5rem; border-radius: 999px; font-size: .75rem; font-weight: 600; background: var(--accent-soft); color: var(--accent); }
+.badge.danger { background: var(--neg-soft); color: var(--neg); }
+.warn { color: var(--amber); font-weight: 600; }
+.person-row { padding: .75rem 0; border-top: 1px solid var(--border); }
+.person-row:first-of-type { border-top: 0; }
+.person-row > * + * { margin-top: .25rem; }
+.person-row.off { opacity: .6; }
+.person-actions { display: flex; flex-wrap: wrap; gap: .5rem; align-items: center; margin-top: .4rem; }
+.limit-form { display: inline-flex; gap: .35rem; align-items: center; }
+.limit-form input { width: 5.5rem; padding: .3rem .45rem; }
+
 /* Setup wizard */
 .progress { display: flex; gap: .3rem; margin-bottom: 1rem; }
 .progress span { flex: 1; height: 4px; border-radius: 2px; background: var(--border); }

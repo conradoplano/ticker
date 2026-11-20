@@ -291,3 +291,39 @@ class SetupWizardTests(TestCase):
         self.user.refresh_from_db()
         self.assertTrue(self.user.setup_completed)
         self.assertEqual((len(self.user.refresh_times), self.user.discovery_share), (4, 10))
+
+
+class AdminPageTests(TestCase):
+    def setUp(self):
+        self.admin = User.objects.create_user(email="admin@example.com", is_staff=True, setup_completed=True)
+        self.pat = User.objects.create_user(email="pat@example.com", name="Pat", setup_completed=True)
+        AIUsage.objects.create(user=self.pat, kind="score", model="gpt-5.4-mini", input_tokens=10, cost="0.0300")
+        AIUsage.objects.create(user=self.pat, kind="briefing", model="odd-model", input_tokens=10, cost="0")
+
+    def test_staff_only(self):
+        self.client.force_login(self.pat)
+        self.assertEqual(self.client.get(reverse("feed:manage")).status_code, 403)
+        self.assertEqual(self.client.post(reverse("feed:manage_person", args=[self.pat.pk]), {"action": "approve"}).status_code, 403)
+
+    def test_costs_waiting_and_actions(self):
+        self.client.force_login(self.admin)
+        page = self.client.get(reverse("feed:manage"))
+        self.assertContains(page, "Waiting for AI (1)")
+        self.assertContains(page, "Today $0.030 of $0.10")
+        self.assertContains(page, "Scoring")
+        self.assertContains(page, "“odd-model” has no price")
+        url = reverse("feed:manage_person", args=[self.pat.pk])
+        self.client.post(url, {"action": "approve"})
+        self.client.post(url, {"action": "limit", "limit": "0.5"})
+        self.pat.refresh_from_db()
+        self.assertTrue(self.pat.ai_approved)
+        self.assertEqual(str(self.pat.ai_daily_limit), "0.50")
+        self.client.post(url, {"action": "limit", "limit": "-3"})
+        self.client.post(url, {"action": "limit", "limit": ""})
+        self.client.post(url, {"action": "suspend"})
+        self.pat.refresh_from_db()
+        self.assertIsNone(self.pat.ai_daily_limit)
+        self.assertFalse(self.pat.is_active)
+        self.client.post(reverse("feed:manage_person", args=[self.admin.pk]), {"action": "suspend"})
+        self.admin.refresh_from_db()
+        self.assertTrue(self.admin.is_active)

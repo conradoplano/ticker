@@ -10,7 +10,7 @@
       <div class="stat"><b>{{ stats.shown }}</b><span>shown of {{ stats.scored }} ranked</span></div>
       <div class="stat"><b>${{ stats.ai_cost|floatformat:3 }}</b><span>AI cost (limit ${{ stats.ai_limit|floatformat:2 }})</span></div>
     </div>
-    {% if stats.ai_blocked %}<p class="muted small">{{ stats.ai_blocked }} Until then the feed is ranked by topic keywords.</p>{% endif %}
+    <p class="muted small">AI this month: ${{ stats.ai_month|floatformat:2 }}.{% if stats.ai_blocked %} {{ stats.ai_blocked }} Until then the feed is ranked by topic keywords.{% endif %}</p>
   </section>
 
   <section class="card" id="sources">
@@ -95,6 +95,13 @@
         <form method="post" action="{% url 'connect:connection_remove' c.pk %}" class="inline" data-confirm="Disconnect {{ c.client }}?">{% csrf_token %}<button class="link danger small">Disconnect</button></form></div>
     {% endfor %}
   </section>
+
+  {% if user.is_staff %}
+    <section class="card" id="admin">
+      <div class="spread"><h3>Admin</h3><a class="btn ghost small" href="{% url 'feed:manage' %}">Open admin</a></div>
+      <p class="muted small">People, approving AI for new ones, what the AI costs and daily limits. All data is in the <a href="{% url 'admin:index' %}">database admin</a>.</p>
+    </section>
+  {% endif %}
 
   <section class="card">
     <h3>Your account</h3>
