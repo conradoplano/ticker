@@ -12,6 +12,7 @@ from django.utils import timezone
 
 class Source(models.Model):
     name = models.CharField(max_length=120)
+    topic_query = models.CharField(max_length=200, blank=True, help_text="Set for a topic feed (a news search).")
     feed_url = models.URLField(max_length=500, unique=True)
     site_url = models.URLField(max_length=500, blank=True)
     active = models.BooleanField(default=True, help_text="Off: not fetched for anyone.")
@@ -59,6 +60,7 @@ class Article(models.Model):
     snippet = models.TextField(blank=True)
     summary = models.CharField(max_length=300, blank=True, help_text="One English sentence by the AI, shared by everyone.")
     link = models.URLField(max_length=1000)
+    publisher = models.CharField(max_length=120, blank=True, help_text="The original publisher, for topic feeds.")
     image_url = models.URLField(max_length=1000, blank=True)
     published_at = models.DateTimeField(db_index=True)
     fetched_at = models.DateTimeField(default=timezone.now, db_index=True)
@@ -73,6 +75,11 @@ class Article(models.Model):
 
     def __str__(self):
         return self.title
+
+    @property
+    def source_name(self):
+        """Who published it: the original publisher for topic feeds, else the source."""
+        return self.publisher or self.source.name
 
     @property
     def one_line(self):

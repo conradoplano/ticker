@@ -310,6 +310,19 @@ class SetupWizardTests(TestCase):
         self.assertContains(self.client.get(reverse("feed:setup_topics")), 'value="Swiss politics" checked')
         self.assertContains(self.client.get(reverse("feed:setup_sources")), 'value="NZZ"')
 
+    def test_sources_step_suggests_for_the_topics(self):
+        self.client.post(reverse("feed:setup_topics"), {"topic": ["Football"]})
+        self.assertContains(self.client.get(reverse("feed:setup_sources")), "Finding sources for your topics")
+        part = self.client.get(reverse("feed:setup_sources_suggest"))
+        self.assertContains(part, "Topic: Football")
+        self.assertNotContains(self.client.get(reverse("feed:setup_sources")), "Finding sources for your topics")
+        url = part.context["found"][0]["feed_url"]
+        self.client.post(reverse("feed:setup_sources"), {"feed": [url]})
+        self.client.post(reverse("feed:setup_preferences"), {"time_zone": "Europe/Berlin", "frequency": "4", "discovery": "10"})
+        with mock.patch("sources.fetch.fetch_all"):
+            self.client.post(reverse("feed:setup_build_run"))
+        self.assertEqual(UserSource.objects.get(user=self.user).source.topic_query, "Football")
+
     def test_skip_uses_defaults(self):
         self.assertRedirects(self.client.post(reverse("feed:setup_skip")), reverse("feed:settings"))
         self.user.refresh_from_db()

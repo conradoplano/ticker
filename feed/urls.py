@@ -22,6 +22,7 @@ urlpatterns = [
     path("setup/", setup.describe, name="setup"),
     path("setup/topics/", setup.topics, name="setup_topics"),
     path("setup/sources/", setup.sources, name="setup_sources"),
+    path("setup/sources/suggest/", setup.sources_suggest, name="setup_sources_suggest"),
     path("setup/preferences/", setup.preferences, name="setup_preferences"),
     path("setup/build/", setup.build_page, name="setup_build"),
     path("setup/build/run/", setup.build_run, name="setup_build_run"),

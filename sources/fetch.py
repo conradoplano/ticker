@@ -76,7 +76,7 @@ class _PublicOnlyRedirects(urllib.request.HTTPRedirectHandler):
 _opener = urllib.request.build_opener(_PublicOnlyRedirects)
 
 
-def get(url, etag="", last_modified="", accept="application/rss+xml, application/atom+xml, application/xml, text/xml, text/html;q=0.8, */*;q=0.5"):
+def get(url, etag="", last_modified="", accept="application/rss+xml, application/atom+xml, application/xml, text/xml, text/html;q=0.8, */*;q=0.5", timeout=None):
     """(status, body bytes, headers, final url). Status 304 means unchanged; body is then empty."""
     if not public_url(url):
         raise FetchError("Only addresses on the public internet can be fetched.")
@@ -87,7 +87,7 @@ def get(url, etag="", last_modified="", accept="application/rss+xml, application
         headers["If-Modified-Since"] = last_modified
     request = urllib.request.Request(url, headers=headers)
     try:
-        with _opener.open(request, timeout=settings.FETCH_TIMEOUT) as response:
+        with _opener.open(request, timeout=timeout or settings.FETCH_TIMEOUT) as response:
             body = response.read(MAX_BYTES + 1)
             if len(body) > MAX_BYTES:
                 raise FetchError("The feed is too large.")
@@ -184,9 +184,16 @@ def store_entries(source, entries):
         published = entry_time(entry)
         if published < cutoff:
             continue
+        # Aggregators (e.g. Google News topic feeds) name the original publisher per item.
+        publisher = clean_text((entry.get("source") or {}).get("title"), 120)
+        if publisher and title.endswith(f" - {publisher}"):
+            title = title[: -len(publisher) - 3].strip()
+        snippet = clean_text(entry.get("summary") or entry.get("description"), SNIPPET_LENGTH)
+        if snippet.startswith(title[:40]):  # an aggregator's "snippet" that only repeats the headline
+            snippet = ""
         article = Article(
-            source=source, guid=guid, title=title, link=link[:1000],
-            snippet=clean_text(entry.get("summary") or entry.get("description"), SNIPPET_LENGTH),
+            source=source, guid=guid, title=title, link=link[:1000], publisher=publisher,
+            snippet=snippet,
             image_url=entry_image(entry)[:1000], published_at=published, fingerprint=fingerprint(title),
         )
         article.story = find_story(article)

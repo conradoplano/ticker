@@ -163,3 +163,73 @@ class SettingsSourceTests(TestCase):
         self.client.post(reverse("sources:remove", args=[link.pk]))
         self.assertFalse(UserSource.objects.exists())
         self.assertTrue(Source.objects.exists())  # shared sources stay
+
+
+GNEWS = b"""<?xml version="1.0"?><rss version="2.0"><channel><title>"clearing" - Google News</title>
+<item><title>Eurex wins euro swaps business - Financial Times</title><link>https://news.google.com/rss/articles/abc</link>
+<description>&lt;a href="x"&gt;Eurex wins euro swaps business&lt;/a&gt;&amp;nbsp;&lt;font&gt;Financial Times&lt;/font&gt;</description>
+<pubDate>%s</pubDate><source url="https://www.ft.com">Financial Times</source></item>
+</channel></rss>"""
+
+
+class SuggestTests(TestCase):
+    def setUp(self):
+        from topics.models import Topic
+
+        self.user = User.objects.create_user(email="pat@example.com", setup_completed=True)
+        Topic.objects.create(user=self.user, name="Clearing and derivatives")
+
+    def test_topic_feed_url(self):
+        from .suggest import topic_feed_url
+
+        self.assertEqual(topic_feed_url('"clearing house"', "de", "de"),
+                         "https://news.google.com/rss/search?q=%22clearing+house%22&hl=de&gl=DE&ceid=DE%3Ade")
+        self.assertIn("hl=en-US&gl=US&ceid=US%3Aen", topic_feed_url("AI"))
+
+    def test_aggregator_items_name_their_publisher(self):
+        source = Source.objects.create(name="Topic: Clearing", feed_url="https://news.google.com/rss/search?q=clearing")
+        with mock.patch.object(fetch, "get", fake_get({source.feed_url: ("application/rss+xml", GNEWS % rfc822(timezone.now()))})):
+            fetch.fetch_source(source)
+        article = Article.objects.get()
+        self.assertEqual((article.title, article.publisher, article.snippet), ("Eurex wins euro swaps business", "Financial Times", ""))
+        self.assertEqual(article.source_name, "Financial Times")
+
+    @override_settings(OPENAI_API_KEY="")
+    def test_without_ai_only_topic_feeds(self):
+        from .suggest import suggest
+
+        results = suggest(self.user, ["Clearing and derivatives"])
+        self.assertEqual([(r["kind"], r["name"]) for r in results], [("topic", "Topic: Clearing and derivatives")])
+
+    @override_settings(OPENAI_API_KEY="test-key")
+    def test_ai_publications_are_checked(self):
+        from . import suggest as module
+
+        self.user.ai_approved = True
+        self.user.save()
+        answer = {"publications": [
+            {"name": "Wire News", "website": "https://wire.example/", "feed": "", "topics": ["Clearing and derivatives"], "why": "Market structure"},
+            {"name": "Dead Site", "website": "https://dead.example/", "feed": "", "topics": [], "why": ""},
+            {"name": "Direct", "website": "", "feed": "https://direct.example/rss", "topics": [], "why": ""},
+        ], "topic_feeds": [{"topic": "clearing and derivatives", "query": '"derivatives clearing"', "language": "en", "country": "GB"}]}
+        pages = {"https://wire.example/": ("text/html", HTML), "https://wire.example/rss.xml": ("application/rss+xml", rss()),
+                 "https://direct.example/rss": ("application/rss+xml", rss())}
+        with mock.patch.object(module, "ask", return_value=answer), mock.patch.object(discover, "get", fake_get(pages)):
+            results = module.suggest(self.user, ["Clearing and derivatives"])
+        names = [(r["kind"], r["name"]) for r in results]
+        self.assertIn(("publication", "Wire News"), names)
+        self.assertIn(("publication", "Direct"), names)
+        self.assertNotIn("Dead Site", [n for _, n in names])
+        topic = [r for r in results if r["kind"] == "topic"][0]
+        self.assertIn("gl=GB", topic["feed_url"])
+
+    @override_settings(OPENAI_API_KEY="")
+    def test_settings_page_and_following_a_topic_feed(self):
+        self.client.force_login(self.user)
+        self.assertContains(self.client.get(reverse("sources:suggest")), "Clearing and derivatives")
+        page = self.client.get(reverse("sources:suggest_results"))
+        self.assertContains(page, "Topic: Clearing and derivatives")
+        url = page.context["found"][0]["feed_url"]
+        self.client.post(reverse("sources:add"), {"action": "confirm", "feed": url})
+        link = UserSource.objects.get(user=self.user)
+        self.assertEqual(link.source.topic_query, "Clearing and derivatives")

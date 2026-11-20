@@ -35,6 +35,13 @@
       </div>
       <button type="submit">Find feeds</button>
     </form>
+    <h3 style="margin-top:1.25rem">Don't know which sources?</h3>
+    <div class="stack">
+      <a class="btn ghost wide" href="{% url 'sources:suggest' %}">✨ Suggest sources for my topics</a>
+      <form method="get" action="{% url 'sources:suggest' %}" class="row">
+        <input name="about" placeholder="or for a subject, e.g. Swiss football" aria-label="Subject"><button class="ghost">Find</button>
+      </form>
+    </div>
   </section>
 
   <section class="card" id="topics">

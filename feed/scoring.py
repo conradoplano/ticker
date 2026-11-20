@@ -85,9 +85,9 @@ def reader_profile(user):
     if user.learned_profile:
         lines.append(f"Learned from their ratings: {user.learned_profile}")
     if liked:
-        lines.append("Recently liked: " + " | ".join(f"{r.article.title} ({r.article.source.name})" for r in liked))
+        lines.append("Recently liked: " + " | ".join(f"{r.article.title} ({r.article.source_name})" for r in liked))
     if disliked:
-        lines.append("Recently disliked: " + " | ".join(f"{r.article.title} ({r.article.source.name})" for r in disliked))
+        lines.append("Recently disliked: " + " | ".join(f"{r.article.title} ({r.article.source_name})" for r in disliked))
     return "\n".join(lines)
 
 
@@ -155,7 +155,7 @@ def score_with_ai(user, articles):
     for start in range(0, len(articles), BATCH):
         batch = articles[start:start + BATCH]
         listing = "\n".join(
-            f"[{a.id}] {a.title} | {a.source.name} | {a.published_at:%Y-%m-%d %H:%M} | "
+            f"[{a.id}] {a.title} | {a.source_name} | {a.published_at:%Y-%m-%d %H:%M} | "
             + (f"Summary: {a.summary}" if a.summary else a.snippet[:300]) for a in batch)
         data = ai.ask(user, AIUsage.Kind.SCORE, INSTRUCTIONS, f"{profile}\n\nArticles:\n{listing}",
                       "save_scores", SCORE_SCHEMA)

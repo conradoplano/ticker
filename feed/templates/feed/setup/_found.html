@@ -1,0 +1,11 @@
+{% for f in found %}
+  {% ifchanged f.kind %}{% if f.kind == "publication" %}<h4>Suggested for your topics</h4>{% elif f.kind == "topic" %}<h4>Topic feeds <span class="muted small">news from many publishers</span></h4>{% elif forloop.counter > 1 %}<h4>Your sources</h4>{% endif %}{% endifchanged %}
+  <div class="found">
+    {% if f.feed_url and not f.error %}<input type="checkbox" name="feed" value="{{ f.feed_url }}" {% if f.chosen %}checked{% endif %} aria-label="Follow {{ f.name }}">{% else %}<span aria-hidden="true">⚠️</span>{% endif %}
+    <div style="flex:1;min-width:0">
+      <b>{{ f.name|default:f.query }}</b>{% if f.topics and f.kind == "publication" %} <span class="muted small">· {{ f.topics|join:", " }}</span>{% endif %}
+      {% if f.why %}<div class="muted small">{{ f.why }}</div>{% elif f.feed_url %}<div class="muted small" style="overflow-wrap:anywhere">{{ f.feed_url }}</div>{% endif %}
+      {% if f.error %}<div class="bad">{{ f.error }}</div>{% endif %}
+    </div>
+  </div>
+{% endfor %}

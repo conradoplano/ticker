@@ -17,7 +17,7 @@ from core.models import AIUsage
 from sources import fetch
 from sources.discover import discover, split_names
 from sources.models import Source
-from sources.services import follow
+from sources.suggest import follow_suggestion, suggest
 from topics import catalog
 from topics.models import Topic
 
@@ -133,7 +133,8 @@ def sources(request):
         else:
             results = [r.as_dict() for r in discover(request.user, ", ".join(names))]
             known = {f["feed_url"] for f in found if f.get("feed_url")}
-            found = [f for f in found if f.get("chosen")] + [r for r in results if r["feed_url"] not in known]
+            found = ([f for f in found if f.get("chosen") or f.get("kind")]
+                     + [r for r in results if not r["feed_url"] or r["feed_url"] not in known])
             for item in found:
                 item.setdefault("chosen", not item["error"])
             save(request, found=found)
@@ -144,12 +145,29 @@ def sources(request):
             item["chosen"] = item.get("feed_url") in chosen and not item["error"]
         save(request, found=found, sources=[f for f in found if f["chosen"]])
         return redirect("feed:setup_preferences")
-    already = {f.get("query", "").lower() for f in found}
+    already = {f.get("query", "").lower() for f in found} | {f.get("name", "").lower() for f in found}
     suggested = [s for s in data.get("suggested_sources", []) if s.lower() not in already]
     existing = list(request.user.user_sources.filter(active=True).select_related("source"))
     return render_step(request, 3, "sources.html", {
         "found": found, "suggested": suggested, "names": text, "existing": existing,
+        "load_suggestions": bool(data.get("topics")) and data.get("suggested_for") != sorted(data.get("topics", [])),
     })
+
+
+@login_required
+def sources_suggest(request):
+    """Sources for the chosen topics, loaded into step 3 after the page (finding and checking takes a while).
+    Publications are ticked; topic feeds are offered unticked."""
+    data = state(request)
+    topics = data.get("topics", [])
+    found = data.get("found", [])
+    if topics and data.get("suggested_for") != sorted(topics):
+        known = {f.get("feed_url") for f in found}
+        for item in suggest(request.user, topics, about=data.get("description", "")):
+            if item["feed_url"] not in known:
+                found.append(dict(item, chosen=item["kind"] == "publication"))
+        save(request, found=found, suggested_for=sorted(topics))
+    return render(request, "feed/setup/_found.html", {"found": found})
 
 
 @login_required
@@ -243,7 +261,7 @@ def build_run(request):
     feed_ids = []
     for item in data.get("sources", []):
         if item.get("feed_url"):
-            link, _ = follow(user, item.get("name"), item["feed_url"], item.get("site_url", ""))
+            link, _ = follow_suggestion(user, item)
             feed_ids.append(link.source_id)
     user.time_zone = prefs.get("time_zone") or user.time_zone
     user.refresh_times = prefs.get("refresh_times") or FREQUENCIES["4"]
@@ -280,7 +298,7 @@ def skip(request):
         Topic.objects.get_or_create(user=user, name__iexact=name, defaults={"name": name})
     for item in data.get("sources", []):
         if item.get("feed_url"):
-            follow(user, item.get("name"), item["feed_url"], item.get("site_url", ""))
+            follow_suggestion(user, item)
     user.refresh_times = FREQUENCIES["4"]
     user.discovery_share = 10
     user.setup_completed = True

@@ -12,6 +12,11 @@ passwordless email-code login, phone-first server-rendered pages (HTMX), install
 - **Sources**: any RSS or Atom feed, added by name, website or feed address. A source is fetched once for
   everyone who follows it, with ETag / Last-Modified. Only title, snippet, link, time and image link are
   stored; the original page opens for reading.
+- **Finding sources from topics**: the AI suggests publications for your topics (general and specialist, in
+  your languages), and each is checked for a working feed before it is offered. For any topic there is also a
+  topic feed (a Google News search), which works even without AI and names each article's original publisher.
+  Offered in the setup wizard, in Settings ("Suggest sources for my topics", or for any subject) and to
+  assistants (`suggest_sources`).
 - **Ranking**: new items are de-duplicated and muted subjects dropped, then the AI scores each item 0–100
   with the matching topic and a one-line reason. Without AI the feed is ranked by topic keywords.
 - **Feed**: Best for me / Latest, filters by topic and source, search, "New" marks since the last visit,
@@ -21,7 +26,7 @@ passwordless email-code login, phone-first server-rendered pages (HTMX), install
 - **Discovery**: about one item in ten (adjustable) comes from a topic not followed yet, with
   **+ Follow this topic**.
 - **Assistants (MCP)**: OAuth 2.1 + MCP at `/mcp` with `get_feed`, `get_briefing`, `get_settings`,
-  `add_topic`, `add_source`, `rate_item`.
+  `add_topic`, `add_source`, `suggest_sources`, `rate_item`.
 - Export of your data and deletion of your account in Settings. English only; every feed is private.
 
 ## Layout

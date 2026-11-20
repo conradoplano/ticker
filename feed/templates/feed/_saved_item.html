@@ -2,7 +2,7 @@
 <article class="card item" id="saved-{{ article.id }}">
   <div>
     <h3><a href="{% url 'feed:open' article.id %}" target="_blank" rel="noopener">{{ article.title }}</a></h3>
-    <div class="meta"><span>{{ article.source.name }}</span><span>·</span><span>{{ article.published_at|ago }}</span></div>
+    <div class="meta"><span>{{ article.source_name }}</span><span>·</span><span>{{ article.published_at|ago }}</span></div>
   </div>
   {% if article.image_url %}<img class="thumb" src="{{ article.image_url }}" alt="" loading="lazy" referrerpolicy="no-referrer">{% endif %}
   {% if article.one_line %}<p class="why">{{ article.one_line }}</p>{% endif %}

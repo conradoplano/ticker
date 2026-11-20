@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+{% block title %}Find sources · {{ site_name }}{% endblock %}
+{% block content %}
+  <p class="small"><a href="{% url 'feed:settings' %}#sources">‹ Settings</a></p>
+  <div class="card">
+    <h2>Find sources</h2>
+    <p class="muted">{% if about %}For “{{ about }}”{% else %}For your topics: {{ topics|join:", " }}{% endif %}</p>
+    <form method="post" action="{% url 'sources:add' %}">
+      {% csrf_token %}<input type="hidden" name="action" value="confirm">
+      <div id="suggestions" hx-get="{% url 'sources:suggest_results' %}{% if about %}?about={{ about|urlencode }}{% endif %}" hx-trigger="load" hx-swap="innerHTML">
+        <div class="spinner" aria-hidden="true"></div>
+        <p class="center muted">Looking for publications and checking their feeds. This takes up to a minute.</p>
+      </div>
+      <div class="wizard-nav">
+        <a href="{% url 'feed:settings' %}#sources">Cancel</a>
+        <button>Add the ticked sources</button>
+      </div>
+    </form>
+  </div>
+{% endblock %}

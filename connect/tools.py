@@ -74,7 +74,7 @@ def item_info(context, score):
     info = {
         "article_id": article.id,
         "title": article.title,
-        "source": article.source.name,
+        "source": article.source_name,
         "published": article.published_at.isoformat(),
         "link": article.link,
         "summary": article.summary or None,
@@ -87,7 +87,7 @@ def item_info(context, score):
     }
     also = getattr(score, "also", [])
     if also:
-        info["also_in"] = [a.source.name for a in also]
+        info["also_in"] = [a.source_name for a in also]
     return info
 
 
@@ -156,16 +156,45 @@ def add_topic(context, args):
 @tool("add_source", "Add a news source",
       "Follows a publication: give its name (e.g. \"Reuters\"), website or feed address. The app finds its RSS "
       "or Atom feed; publishers without a public feed can't be added. New articles arrive with the next refresh.",
-      {"source": {"type": "string", "maxLength": 200, "description": "Name, website or feed address."}},
+      {"source": {"type": "string", "maxLength": 500, "description": "Name, website or feed address."}},
       required=["source"], open_world=True)
 def add_source(context, args):
-    query = text(args, "source", 200, required=True)
+    query = text(args, "source", 500, required=True)
+    if query.startswith("https://news.google.com/rss/search?"):
+        from urllib.parse import parse_qs, urlsplit
+
+        from sources.suggest import follow_suggestion
+        topic = parse_qs(urlsplit(query).query).get("q", ["news"])[0]
+        link, created = follow_suggestion(context.user, {"name": f"Topic: {topic}", "feed_url": query,
+                                                         "site_url": "https://news.google.com/", "kind": "topic",
+                                                         "topics": [topic]})
+        return {"source": link.display_name, "feed_url": query, "added": created}
     found = discover(context.user, query.replace(",", " "))
     if not found or not found[0].ok:
         raise ToolError(found[0].error if found else "Nothing found.")
     result = found[0]
     link, created = follow(context.user, result.name, result.feed_url, result.site_url)
     return {"source": link.display_name, "feed_url": result.feed_url, "added": created}
+
+
+@tool("suggest_sources", "Suggest sources for topics",
+      "Finds sources for their topics (or one subject): publications with a working feed, and topic feeds (a news "
+      "search for one topic, from many publishers). Takes up to a minute. Follow one with add_source and its "
+      "feed_url.",
+      {"subject": {"type": "string", "maxLength": 120,
+                   "description": "One subject; empty: all their active topics."}},
+      read_only=True, open_world=True)
+def suggest_sources(context, args):
+    from sources.suggest import suggest
+
+    subject = text(args, "subject", 120)
+    topics = [subject] if subject else list(context.user.topics.filter(active=True).values_list("name", flat=True))
+    if not topics:
+        raise ToolError("They follow no topics yet; give a subject or add a topic first.")
+    return {"suggestions": [
+        {"name": item["name"], "feed_url": item["feed_url"], "kind": item["kind"], "topics": item["topics"],
+         "why": item["why"]}
+        for item in suggest(context.user, topics, about=subject)]}
 
 
 @tool("rate_item", "Rate an item",

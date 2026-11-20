@@ -4,7 +4,7 @@
   <div class="card">
     {% include "feed/setup/_progress.html" %}
     <h2>Your sources</h2>
-    <p class="muted">Type the publications you read, or paste a website or feed address. We find each feed and you confirm it.</p>
+    <p class="muted">We suggest sources for your topics below. You can also type the publications you read, or paste a website or feed address.</p>
     <form method="post" class="stack">
       {% csrf_token %}<input type="hidden" name="action" value="find">
       {% if suggested %}
@@ -19,16 +19,13 @@
     <form method="post" style="margin-top:1rem">
       {% csrf_token %}
       {% if existing %}<p class="muted small">Already following: {% for us in existing %}{{ us.display_name }}{% if not forloop.last %}, {% endif %}{% endfor %}.</p>{% endif %}
-      {% for f in found %}
-        <div class="found">
-          {% if f.feed_url and not f.error %}<input type="checkbox" name="feed" value="{{ f.feed_url }}" {% if f.chosen %}checked{% endif %} aria-label="Follow {{ f.name }}">{% else %}<span aria-hidden="true">⚠️</span>{% endif %}
-          <div style="flex:1;min-width:0">
-            <b>{{ f.name|default:f.query }}</b>
-            {% if f.feed_url %}<div class="muted small" style="overflow-wrap:anywhere">{{ f.feed_url }}</div>{% endif %}
-            {% if f.error %}<div class="bad">{{ f.error }}</div>{% endif %}
-          </div>
+      <div id="found">{% include "feed/setup/_found.html" %}</div>
+      {% if load_suggestions %}
+        <div hx-get="{% url 'feed:setup_sources_suggest' %}" hx-trigger="load" hx-target="#found" hx-swap="innerHTML" hx-on::after-request="this.remove()">
+          <div class="spinner" aria-hidden="true"></div>
+          <p class="center muted small">Finding sources for your topics and checking their feeds…</p>
         </div>
-      {% endfor %}
+      {% endif %}
       <div class="wizard-nav"><a href="{% url 'feed:setup_topics' %}">Back</a>{% include "feed/setup/_skip.html" %}<button>Next</button></div>
     </form>
   </div>

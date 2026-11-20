@@ -19,6 +19,8 @@ from .models import Source
 
 logger = logging.getLogger(__name__)
 
+# Discovery happens while someone waits: shorter timeouts than the background fetch.
+TIMEOUT = 8
 COMMON_PATHS = ["/feed", "/rss", "/recent.rss", "/rss.xml", "/feed.xml", "/atom.xml", "/index.xml", "/feeds/all.rss", "/rss/feed"]
 FEED_TYPES = ("application/rss+xml", "application/atom+xml", "application/feed+json", "application/xml", "text/xml")
 
@@ -99,7 +101,7 @@ def site_of(url):
 def try_feed(url):
     """(feed title, final url) if the address is a readable feed with items, else None."""
     try:
-        status, body, _, final = get(url)
+        status, body, _, final = get(url, timeout=TIMEOUT)
         parsed = parse(body)
     except FetchError:
         return None
@@ -111,7 +113,7 @@ def try_feed(url):
 def from_address(query, address, name=""):
     url = normalise(address)
     try:
-        status, body, headers, final = get(url)
+        status, body, headers, final = get(url, timeout=TIMEOUT)
     except FetchError as exc:
         if any(code in str(exc) for code in ("401", "403", "451")):
             return Found(query, name=name, site_url=url,

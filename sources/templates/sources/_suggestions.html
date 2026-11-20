@@ -1,0 +1,13 @@
+{% for f in found %}
+  {% ifchanged f.kind %}<h4>{% if f.kind == "topic" %}Topic feeds <span class="muted small">news from many publishers</span>{% else %}Publications{% endif %}</h4>{% endifchanged %}
+  <label class="found">
+    <input type="checkbox" name="feed" value="{{ f.feed_url }}" {% if f.kind != "topic" %}checked{% endif %}>
+    <input type="hidden" name="name-{{ f.feed_url }}" value="{{ f.name }}">
+    <span style="flex:1;min-width:0">
+      <b>{{ f.name }}</b>{% if f.topics %} <span class="muted small">· {{ f.topics|join:", " }}</span>{% endif %}
+      {% if f.why %}<span class="muted small" style="display:block">{{ f.why }}</span>{% endif %}
+    </span>
+  </label>
+{% empty %}
+  <p class="muted">Nothing new found. Try a different subject, or type the publications you know.</p>
+{% endfor %}

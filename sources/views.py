@@ -8,7 +8,7 @@ from django.views.decorators.http import require_POST
 
 from .discover import discover
 from .models import UserSource
-from .services import follow
+from .suggest import follow_suggestion, suggest
 
 PENDING = "found_sources"
 
@@ -25,7 +25,8 @@ def add(request):
         added = 0
         for url in request.POST.getlist("feed"):
             if url in found:
-                follow(request.user, request.POST.get(f"name-{url}") or found[url]["name"], url, found[url]["site_url"])
+                item = dict(found[url], name=request.POST.get(f"name-{url}") or found[url]["name"])
+                follow_suggestion(request.user, item)
                 added += 1
         if added:
             messages.success(request, f"Added {added} source{'s' if added != 1 else ''}. Its news arrives with the next refresh.")
@@ -64,3 +65,24 @@ def remove(request, pk):
     messages.success(request, f"Removed {link.display_name}.")
     link.delete()
     return back()
+
+
+@login_required
+def suggestions(request):
+    """Find sources for the person's topics (or one subject): the page, which loads the results itself."""
+    topics = list(request.user.topics.filter(active=True).values_list("name", flat=True))
+    about = " ".join(request.GET.get("about", "").split())[:120]
+    if not topics and not about:
+        messages.info(request, "Add a topic first, or type a subject to find sources about.")
+        return back()
+    return render(request, "sources/suggest.html", {"topics": topics, "about": about})
+
+
+@login_required
+def suggestion_results(request):
+    """The checked suggestions (slow: the AI, then every feed is tried)."""
+    about = " ".join(request.GET.get("about", "").split())[:120]
+    topics = [about] if about else list(request.user.topics.filter(active=True).values_list("name", flat=True))
+    results = suggest(request.user, topics, about=about)
+    request.session[PENDING] = results
+    return render(request, "sources/_suggestions.html", {"found": results})

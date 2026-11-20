@@ -212,7 +212,7 @@ class MCPTests(OAuthMixin, TestCase):
         self.assertEqual(init["result"]["serverInfo"]["name"], "ticker")
         self.assertIn("personal news feed", init["result"]["instructions"])
         tools = [t["name"] for t in self.rpc("tools/list").json()["result"]["tools"]]
-        self.assertEqual(tools, ["get_feed", "get_briefing", "get_settings", "add_topic", "add_source", "rate_item"])
+        self.assertEqual(tools, ["get_feed", "get_briefing", "get_settings", "add_topic", "add_source", "suggest_sources", "rate_item"])
 
     def test_get_feed(self):
         feed = self.call("get_feed")

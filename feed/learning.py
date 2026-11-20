@@ -28,7 +28,7 @@ def learn(user):
                    .order_by("-created_at")[:150])
     opened = list(Rating.objects.filter(user=user, value="opened").select_related("article__source")
                   .order_by("-created_at")[:50])
-    history = "\n".join(f"{r.get_value_display()}: {r.article.title} ({r.article.source.name})" for r in ratings + opened)
+    history = "\n".join(f"{r.get_value_display()}: {r.article.title} ({r.article.source_name})" for r in ratings + opened)
     data = ai.ask(
         user, AIUsage.Kind.LEARN,
         "Write, in English, a short profile of a news reader's interests from what they rated, saved and opened, plus what "
@@ -82,7 +82,7 @@ def build_briefing(user):
     scores = briefing_items(user)
     sentences = {}
     if scores and not ai.blocked(user):
-        listing = "\n".join(f"{n}. {s.article.title} | {s.article.source.name} | {s.article.summary or s.article.snippet[:400]}"
+        listing = "\n".join(f"{n}. {s.article.title} | {s.article.source_name} | {s.article.summary or s.article.snippet[:400]}"
                             for n, s in enumerate(scores, start=1))
         try:
             data = ai.ask(
@@ -109,7 +109,7 @@ def build_briefing(user):
     else:
         chosen = [(s, s.article.one_line) for s in scores[:5]]
     user.briefing = [
-        {"id": s.article_id, "title": s.article.title, "source": s.article.source.name, "sentence": text}
+        {"id": s.article_id, "title": s.article.title, "source": s.article.source_name, "sentence": text}
         for s, text in chosen
     ]
     user.briefing_date = user.local_now().date()
