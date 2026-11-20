@@ -113,7 +113,7 @@ class AIScoringTests(Base):
     def test_briefing(self):
         a = self.article("ECB holds rates")
         ArticleScore.objects.create(user=self.user, article=a, score=90)
-        self.use_ai(ai_response("save_briefing", {"items": [{"id": a.id, "sentence": "The ECB paused."}]}))
+        self.use_ai(ai_response("save_briefing", {"items": [{"number": 1, "sentence": "The ECB paused."}]}))
         items = learning.build_briefing(self.user)
         self.assertEqual(items[0]["sentence"], "The ECB paused.")
 

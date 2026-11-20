@@ -19,7 +19,7 @@ from .models import Source
 
 logger = logging.getLogger(__name__)
 
-COMMON_PATHS = ["/feed", "/rss", "/rss.xml", "/feed.xml", "/atom.xml", "/index.xml", "/feeds/all.rss", "/rss/feed"]
+COMMON_PATHS = ["/feed", "/rss", "/recent.rss", "/rss.xml", "/feed.xml", "/atom.xml", "/index.xml", "/feeds/all.rss", "/rss/feed"]
 FEED_TYPES = ("application/rss+xml", "application/atom+xml", "application/feed+json", "application/xml", "text/xml")
 
 
@@ -45,6 +45,7 @@ class _FeedLinks(HTMLParser):
         super().__init__()
         self.feeds = []
         self.title = ""
+        self.site_name = ""
         self._in_title = False
 
     def handle_starttag(self, tag, attrs):
@@ -52,6 +53,8 @@ class _FeedLinks(HTMLParser):
         if tag == "link" and "alternate" in (attrs.get("rel") or "").lower():
             if (attrs.get("type") or "").lower() in FEED_TYPES and attrs.get("href"):
                 self.feeds.append((attrs["href"], attrs.get("title") or ""))
+        elif tag == "meta" and (attrs.get("property") or attrs.get("name") or "").lower() in ("og:site_name", "application-name"):
+            self.site_name = self.site_name or " ".join((attrs.get("content") or "").split())
         elif tag == "title":
             self._in_title = True
 
@@ -62,6 +65,19 @@ class _FeedLinks(HTMLParser):
     def handle_data(self, data):
         if self._in_title and not self.title:
             self.title = " ".join(data.split())
+
+
+def title_name(title, url):
+    """The publication's name from a page title like "World news | The Guardian": the part that matches the
+    domain, else the first part."""
+    parts = [p.strip() for p in re.split(r"\s+[|\-–—:·]\s+", title or "") if p.strip()]
+    if not parts:
+        return ""
+    host = (urlsplit(url).hostname or "").lower().removeprefix("www.").split(".")[0]
+    for part in parts:
+        if host and host in re.sub(r"[^a-z0-9]", "", part.lower()):
+            return part[:120]
+    return parts[0][:120]
 
 
 def looks_like_address(text):
@@ -97,6 +113,9 @@ def from_address(query, address, name=""):
     try:
         status, body, headers, final = get(url)
     except FetchError as exc:
+        if any(code in str(exc) for code in ("401", "403", "451")):
+            return Found(query, name=name, site_url=url,
+                         error="This site blocks feed readers, so it is not supported.")
         return Found(query, name=name, site_url=url, error=f"That address could not be opened ({exc}).")
     content_type = (headers.get("Content-Type") or "").lower()
     if "html" not in content_type:
@@ -123,7 +142,7 @@ def from_address(query, address, name=""):
         result = try_feed(candidate)
         if result:
             title, feed_url = result
-            label = name or page.title.split(" | ")[0].split(" - ")[0].strip() or title or urlsplit(final).hostname
+            label = name or page.site_name or title_name(page.title, final) or title or urlsplit(final).hostname
             return Found(query, name=label[:120], feed_url=feed_url, site_url=site_of(final))
     return Found(query, name=name or page.title[:120], site_url=site_of(final),
                  error="No public feed was found for this site, so it is not supported. Try another address.")
