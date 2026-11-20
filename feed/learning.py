@@ -82,7 +82,7 @@ def build_briefing(user):
     scores = briefing_items(user)
     sentences = {}
     if scores and not ai.blocked(user):
-        listing = "\n".join(f"{n}. {s.article.title} | {s.article.source.name} | {s.article.snippet[:400]}"
+        listing = "\n".join(f"{n}. {s.article.title} | {s.article.source.name} | {s.article.summary or s.article.snippet[:400]}"
                             for n, s in enumerate(scores, start=1))
         try:
             data = ai.ask(
@@ -107,7 +107,7 @@ def build_briefing(user):
         by_id = {s.article_id: s for s in scores}
         chosen = [(by_id[i], text) for i, text in sentences.items() if i in by_id][:5]
     else:
-        chosen = [(s, s.article.snippet[:200]) for s in scores[:5]]
+        chosen = [(s, s.article.one_line) for s in scores[:5]]
     user.briefing = [
         {"id": s.article_id, "title": s.article.title, "source": s.article.source.name, "sentence": text}
         for s, text in chosen

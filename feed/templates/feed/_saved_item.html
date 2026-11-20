@@ -5,7 +5,7 @@
     <div class="meta"><span>{{ article.source.name }}</span><span>·</span><span>{{ article.published_at|ago }}</span></div>
   </div>
   {% if article.image_url %}<img class="thumb" src="{{ article.image_url }}" alt="" loading="lazy" referrerpolicy="no-referrer">{% endif %}
-  {% if article.snippet %}<p class="why">{{ article.snippet }}</p>{% endif %}
+  {% if article.one_line %}<p class="why">{{ article.one_line }}</p>{% endif %}
   <div class="actions">
     <form method="post" action="{% url 'feed:rate' article.id %}" hx-post="{% url 'feed:rate' article.id %}" hx-target="#saved-{{ article.id }}" hx-swap="outerHTML" class="inline">
       {% csrf_token %}<input type="hidden" name="where" value="saved"><input type="hidden" name="next" value="{% url 'feed:saved' %}">

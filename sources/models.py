@@ -57,6 +57,7 @@ class Article(models.Model):
     guid = models.CharField(max_length=500, help_text="The feed's id for it, or its link.")
     title = models.CharField(max_length=500)
     snippet = models.TextField(blank=True)
+    summary = models.CharField(max_length=300, blank=True, help_text="One English sentence by the AI, shared by everyone.")
     link = models.URLField(max_length=1000)
     image_url = models.URLField(max_length=1000, blank=True)
     published_at = models.DateTimeField(db_index=True)
@@ -72,6 +73,16 @@ class Article(models.Model):
 
     def __str__(self):
         return self.title
+
+    @property
+    def one_line(self):
+        """What the feed shows under the headline: the AI's summary, else the start of the snippet."""
+        if self.summary:
+            return self.summary
+        text = self.snippet
+        end = text.find(". ", 40)
+        text = text[: end + 1] if 0 < end < 200 else text
+        return text if len(text) <= 200 else text[:199].rsplit(" ", 1)[0] + "…"
 
     @property
     def lead(self):

@@ -77,7 +77,8 @@ class AIScoringTests(Base):
         bank = self.article("ECB holds rates")
         chess = self.article("Chess final goes to tiebreaks")
         create = self.use_ai(ai_response("save_scores", {"items": [
-            {"id": bank.id, "score": 88, "topic": "markets AND central banks", "new_topic": "", "reason": "You follow Markets"},
+            {"id": bank.id, "score": 88, "topic": "markets AND central banks", "new_topic": "", "reason": "You follow Markets",
+             "summary": "The ECB kept its rates unchanged."},
             {"id": chess.id, "score": 55, "topic": "", "new_topic": "Chess", "reason": "Something new"},
         ]}))
         self.assertEqual(scoring.score_new(self.user), (2, ArticleScore.Method.AI))
@@ -87,6 +88,20 @@ class AIScoringTests(Base):
         prompt = create.call_args.kwargs["input"][0]["content"]
         self.assertIn("Followed topics: Markets and central banks", prompt)
         self.assertEqual(AIUsage.objects.get().kind, "score")
+        bank.refresh_from_db()
+        self.assertEqual(bank.summary, "The ECB kept its rates unchanged.")
+
+    def test_summary_is_written_once_and_shared(self):
+        bank = self.article("EZB lässt Zinsen unverändert", summary="The ECB kept its rates unchanged.")
+        other = User.objects.create_user(email="sam@example.com", setup_completed=True)
+        UserSource.objects.create(user=other, source=self.source)
+        self.user = other
+        create = self.use_ai(ai_response("save_scores", {"items": [
+            {"id": bank.id, "score": 70, "topic": "", "new_topic": "", "reason": "", "summary": "Something else."}]}))
+        scoring.score_new(other)
+        self.assertIn("Summary: The ECB kept its rates unchanged.", create.call_args.kwargs["input"][0]["content"])
+        bank.refresh_from_db()
+        self.assertEqual(bank.summary, "The ECB kept its rates unchanged.")
 
     def test_falls_back_to_keywords_when_ai_fails(self):
         self.article("Central banks meet")
@@ -119,6 +134,14 @@ class AIScoringTests(Base):
         self.assertEqual(items[0]["sentence"], "The ECB paused.")
 
 
+class OneLineTests(TestCase):
+    def test_summary_else_first_sentence_of_snippet(self):
+        self.assertEqual(Article(summary="AI line.", snippet="Long text.").one_line, "AI line.")
+        snippet = "The central bank held its deposit rate at two percent. Analysts had expected this. More follows."
+        self.assertEqual(Article(snippet=snippet).one_line, "The central bank held its deposit rate at two percent.")
+        self.assertEqual(Article(snippet="").one_line, "")
+
+
 class FeedBuildTests(Base):
     def test_discovery_is_mixed_in(self):
         for i in range(18):
@@ -147,7 +170,7 @@ class FeedViewTests(Base):
     def setUp(self):
         super().setUp()
         self.client.force_login(self.user)
-        self.a = self.article("ECB holds rates")
+        self.a = self.article("ECB holds rates", summary="The ECB kept rates on hold to watch inflation.")
         self.score = ArticleScore.objects.create(user=self.user, article=self.a, score=80, topic="Markets and central banks",
                                                  reason="You follow Markets")
 
@@ -161,7 +184,7 @@ class FeedViewTests(Base):
         self.article("Unscored story")
         page = self.client.get(reverse("feed:home"))
         self.assertContains(page, "ECB holds rates")
-        self.assertContains(page, "You follow Markets")
+        self.assertContains(page, "The ECB kept rates on hold to watch inflation.")
         background.assert_called_once()
         self.client.get(reverse("feed:home"))
         background.assert_called_once()  # not again within the hour

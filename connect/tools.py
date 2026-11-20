@@ -77,6 +77,7 @@ def item_info(context, score):
         "source": article.source.name,
         "published": article.published_at.isoformat(),
         "link": article.link,
+        "summary": article.summary or None,
         "snippet": article.snippet,
         "score": score.score,
         "topic": score.topic or None,
